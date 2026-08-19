@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Runtime / local data ###
+logs/
+*.log
+
+### H2 local database ###
+data/*.mv.db
+data/*.trace.db

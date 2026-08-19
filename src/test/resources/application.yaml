@@ -1,5 +1,4 @@
 spring:
-
   datasource:
     url: jdbc:h2:mem:testdb
     driver-class-name: org.h2.Driver
@@ -9,13 +8,24 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
-
     show-sql: false
 
   h2:
     console:
       enabled: false
 
-jwt:
-  secret: "esta-chave-deve-ser-grande-e-secreta-com-pelo-menos-32-bytes"
-  expiration: 3600
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081/realms/projeto-springboot
+
+app:
+  security:
+    keycloak:
+      client-id: projeto-springboot-api
+
+# Configuração antiga, mantida apenas como referência.
+# jwt:
+#   secret: "esta-chave-deve-ser-grande-e-secreta-com-pelo-menos-32-bytes"
+#   expiration: 3600
