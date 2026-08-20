@@ -24,7 +24,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PedidoServiceTest {
-/*ABC*/
+/*ABCDE*/
     @Mock
     private ClienteRepository clienteRepository;
 
