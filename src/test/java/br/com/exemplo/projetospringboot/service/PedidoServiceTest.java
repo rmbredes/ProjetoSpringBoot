@@ -1,5 +1,5 @@
 package br.com.exemplo.projetospringboot.service;
-
+/*TESTE*/
 import br.com.exemplo.projetospringboot.dto.PedidoDTO;
 import br.com.exemplo.projetospringboot.entity.Cliente;
 import br.com.exemplo.projetospringboot.entity.Pedido;
@@ -24,7 +24,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PedidoServiceTest {
-
+/*ABC*/
     @Mock
     private ClienteRepository clienteRepository;
 
