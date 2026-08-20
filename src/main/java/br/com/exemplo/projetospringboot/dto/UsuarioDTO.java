@@ -3,6 +3,7 @@ package br.com.exemplo.projetospringboot.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/*TESTE*/
 public record UsuarioDTO(
         Long id,
 
