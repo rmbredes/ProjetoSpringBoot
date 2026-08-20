@@ -105,7 +105,7 @@ public class SecurityConfig {
         return configuration
                 .getAuthenticationManager();
     }
-
+/*TESTE*/
     /*
      * =========================================================
      * JWT ENCODER
