@@ -44,7 +44,7 @@ pipeline {
 
             steps {
 
-                bat 'call mvnw.cmd test'
+                bat 'call mvnw.cmd teste-inexistente'
             }
         }
 
