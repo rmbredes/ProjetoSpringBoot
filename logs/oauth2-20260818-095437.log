@@ -1,0 +1,66 @@
+﻿**********************
+Início da transcrição do Windows PowerShell
+Hora de início: 20260818095437
+Nome de Usuário: DESKTOP-BIB7KIK\Ricardo
+Executar como Usuário: DESKTOP-BIB7KIK\Ricardo
+Nome da Configuração: 
+Computador: DESKTOP-BIB7KIK (Microsoft Windows NT 10.0.19045.0)
+Aplicativo Host: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File .\testar-oauth2.ps1
+ID do Processo: 24816
+PSVersion: 5.1.19041.7663
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.19041.7663
+BuildVersion: 10.0.19041.7663
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Log:      C:\Recomeco\projetos\ProjetoSpringBoot\logs\oauth2-20260818-095437.log
+
+================================================================
+1. DISPONIBILIDADE
+================================================================
+[OK]    Keycloak e realm estao respondendo
+        Esperado: 200 | Recebido: 200
+PS>TerminatingError(Invoke-WebRequest): "{"dataHora":"2026-08-18T09:54:48.5539189","status":401,"erro":"Unauthorized","mensagem":"Autenticação necessária ou token inválido","path":"/ProjetoSpringBoot/clientes"}"
+[OK]    Sem token em /clientes
+        Esperado: 401 | Recebido: 401
+
+================================================================
+2. USUARIO COM ROLE USER
+================================================================
+[OK]    Token USER obtido
+        O token nao sera exibido nem gravado no log.
+[OK]    USER em /clientes
+        Esperado: 200 | Recebido: 200
+PS>TerminatingError(Invoke-WebRequest): "{"dataHora":"2026-08-18T09:54:49.5607547","status":403,"erro":"Forbidden","mensagem":"Você não possui permissão para acessar este recurso","path":"/ProjetoSpringBoot/admin"}"
+[OK]    USER em /admin
+        Esperado: 403 | Recebido: 403
+
+================================================================
+3. USUARIO COM ROLE ADMIN
+================================================================
+[OK]    Token ADMIN obtido
+        O token nao sera exibido nem gravado no log.
+[OK]    ADMIN em /admin
+        Esperado: 200 | Recebido: 200
+        Resposta: Acesso administrativo permitido
+
+================================================================
+4. TOKEN INVALIDO
+================================================================
+PS>TerminatingError(Invoke-WebRequest): "{"dataHora":"2026-08-18T09:54:49.6624149","status":401,"erro":"Unauthorized","mensagem":"Autenticação necessária ou token inválido","path":"/ProjetoSpringBoot/clientes"}"
+[OK]    Token invalido em /clientes
+        Esperado: 401 | Recebido: 401
+
+================================================================
+RESUMO
+================================================================
+Testes aprovados: 8
+Testes com falha: 0
+Resultado final: TODOS OS TESTES PASSARAM
+**********************
+Fim da transcrição do Windows PowerShell
+Hora de término: 20260818095449
+**********************

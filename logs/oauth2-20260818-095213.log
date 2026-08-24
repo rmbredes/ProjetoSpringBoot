@@ -1,0 +1,63 @@
+﻿**********************
+Início da transcrição do Windows PowerShell
+Hora de início: 20260818095213
+Nome de Usuário: DESKTOP-BIB7KIK\Ricardo
+Executar como Usuário: DESKTOP-BIB7KIK\Ricardo
+Nome da Configuração: 
+Computador: DESKTOP-BIB7KIK (Microsoft Windows NT 10.0.19045.0)
+Aplicativo Host: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File .\testar-oauth2.ps1
+ID do Processo: 25116
+PSVersion: 5.1.19041.7663
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.19041.7663
+BuildVersion: 10.0.19041.7663
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Log:      C:\Recomeco\projetos\ProjetoSpringBoot\logs\oauth2-20260818-095213.log
+
+================================================================
+1. DISPONIBILIDADE
+================================================================
+PS>TerminatingError(Invoke-WebRequest): "Impossível conectar-se ao servidor remoto"
+[FALHA] Keycloak e realm estao respondendo
+        Esperado: 200 | Recebido: 0
+PS>TerminatingError(Invoke-WebRequest): "{"dataHora":"2026-08-18T09:52:27.5341652","status":401,"erro":"Unauthorized","mensagem":"Autenticação necessária ou token inválido","path":"/ProjetoSpringBoot/clientes"}"
+[OK]    Sem token em /clientes
+        Esperado: 401 | Recebido: 401
+
+================================================================
+2. USUARIO COM ROLE USER
+================================================================
+PS>TerminatingError(Invoke-RestMethod): "Impossível conectar-se ao servidor remoto"
+>> TerminatingError(Invoke-RestMethod): "Impossível conectar-se ao servidor remoto"
+[FALHA] Token USER obtido
+        Impossível conectar-se ao servidor remoto
+
+================================================================
+3. USUARIO COM ROLE ADMIN
+================================================================
+PS>TerminatingError(Invoke-RestMethod): "Impossível conectar-se ao servidor remoto"
+>> TerminatingError(Invoke-RestMethod): "Impossível conectar-se ao servidor remoto"
+[FALHA] Token ADMIN obtido
+        Impossível conectar-se ao servidor remoto
+
+================================================================
+4. TOKEN INVALIDO
+================================================================
+PS>TerminatingError(Invoke-WebRequest): "{"dataHora":"2026-08-18T09:52:35.7901421","status":401,"erro":"Unauthorized","mensagem":"Autenticação necessária ou token inválido","path":"/ProjetoSpringBoot/error"}"
+[OK]    Token invalido em /clientes
+        Esperado: 401 | Recebido: 401
+
+================================================================
+RESUMO
+================================================================
+Testes aprovados: 2
+Testes com falha: 3
+Resultado final: EXISTEM FALHAS PARA ANALISAR
+**********************
+Fim da transcrição do Windows PowerShell
+Hora de término: 20260818095235
+**********************

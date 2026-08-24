@@ -3,6 +3,9 @@ package br.com.exemplo.projetospringboot.service;
 import br.com.exemplo.projetospringboot.dto.ClienteDTO;
 import br.com.exemplo.projetospringboot.entity.Cliente;
 import br.com.exemplo.projetospringboot.repository.ClienteRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,6 +21,7 @@ public class ClienteService {
         this.clienteRepository = clienteRepository;
     }
 
+    @Cacheable(value = "clientes", key = "#id")
     public ClienteDTO buscar(Long id) {
         Cliente cliente = clienteRepository.findById(id).orElseThrow();
         return converterParaDTO(cliente);
@@ -51,7 +55,7 @@ public class ClienteService {
         return converterParaDTO(salvo);
 
     }
-
+    @CachePut(value = "clientes", key = "#id")
     public ClienteDTO atualizar(Long id, ClienteDTO clienteDTO)
     {
 
@@ -63,14 +67,14 @@ public class ClienteService {
         Cliente atualizado = clienteRepository.save(cliente);
         return converterParaDTO(atualizado);
     }
-
+    @CachePut(value = "clientes", key = "#id")
     public ClienteDTO alterarEmail(Long id, String email){
         Cliente cliente = buscarEntidade(id);
         cliente.setEmail(email);
         Cliente atualizado = clienteRepository.save(cliente);
         return converterParaDTO(atualizado);
     }
-
+    @CacheEvict(value = "clientes", key = "#id")
     public void excluir(Long id){
         Cliente cliente = buscarEntidade(id);
         clienteRepository.delete(cliente);
