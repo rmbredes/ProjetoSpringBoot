@@ -3,6 +3,8 @@ package br.com.exemplo.projetospringboot.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
+import java.io.Serializable;
+
 public record ClienteDTO(
 
 
@@ -15,7 +17,7 @@ public record ClienteDTO(
         @Email(message = "Email inválido")
         String email,
 
-        boolean ativo) {
+        boolean ativo) implements Serializable {
 
 
 

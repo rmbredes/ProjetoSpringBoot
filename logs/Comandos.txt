@@ -1,0 +1,14 @@
+cd /d C:\Recomeco\ferramentas\keycloak-26.7.0
+bin\kc.bat start-dev --http-port=8081
+
+cd /d C:\Recomeco\projetos\ProjetoSpringBoot
+mvnw.cmd spring-boot:run
+
+cd C:\Recomeco\projetos\ProjetoSpringBoot
+powershell -ExecutionPolicy Bypass -File .\testar-oauth2.ps1
+
+
+cd C:\Recomeco\projetos\ProjetoSpringBoot
+.\testar-oauth2.ps1
+
+powershell -ExecutionPolicy Bypass -File .\testar-oauth2.ps1
