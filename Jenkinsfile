@@ -55,5 +55,13 @@ pipeline {
                 bat 'call mvnw.cmd clean package'
             }
         }
+        stage('Teste Docker') {
+
+            steps {
+                bat 'docker --version'
+                bat 'docker compose version'
+                bat 'docker version'
+            }
+        }
     }
 }
