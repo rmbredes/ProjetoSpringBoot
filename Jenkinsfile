@@ -92,5 +92,32 @@ pipeline {
                 bat 'docker compose -p projetospringboot ps'
             }
         }
+        stage('Validar Aplicacao') {
+
+            steps {
+                bat '''
+                    curl.exe ^
+                        --retry 12 ^
+                        --retry-delay 5 ^
+                        --retry-connrefused ^
+                        -i ^
+                        http://localhost:8080/ProjetoSpringBoot/clientes
+                '''
+            }
+        }
+        stage('Limpar Imagens Antigas') {
+
+            steps {
+                bat '''
+                    for /f "delims=" %%i in ('docker image ls projeto-springboot --format "{{.Repository}}:{{.Tag}}"') do (
+                        if /I not "%%i"=="projeto-springboot:latest" (
+                            if /I not "%%i"=="projeto-springboot:%BUILD_NUMBER%" (
+                                docker image rm "%%i" || echo Imagem em uso, mantida: %%i
+                            )
+                        )
+                    )
+                '''
+            }
+        }
     }
 }
