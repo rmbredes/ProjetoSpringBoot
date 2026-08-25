@@ -63,5 +63,19 @@ pipeline {
                 bat 'docker version'
             }
         }
+
+        stage('Build Docker') {
+
+            steps {
+                bat '''
+                    docker build ^
+                        -t projeto-springboot:%BUILD_NUMBER% ^
+                        -t projeto-springboot:latest ^
+                        .
+                '''
+
+                bat 'docker image inspect projeto-springboot:%BUILD_NUMBER%'
+            }
+        }
     }
 }
