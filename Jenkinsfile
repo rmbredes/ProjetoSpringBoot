@@ -99,7 +99,7 @@ pipeline {
                     curl.exe ^
                         --retry 12 ^
                         --retry-delay 5 ^
-                        --retry-connrefused ^
+                        --retry-all-errors ^
                         -i ^
                         http://localhost:8080/ProjetoSpringBoot/clientes
                 '''
