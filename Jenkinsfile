@@ -77,5 +77,20 @@ pipeline {
                 bat 'docker image inspect projeto-springboot:%BUILD_NUMBER%'
             }
         }
+        stage('Deploy Docker') {
+
+            steps {
+                bat '''
+                    docker compose ^
+                        -p projetospringboot ^
+                        up -d ^
+                        --no-build ^
+                        --wait ^
+                        --wait-timeout 120
+                '''
+
+                bat 'docker compose -p projetospringboot ps'
+            }
+        }
     }
 }

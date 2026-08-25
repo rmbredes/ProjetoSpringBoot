@@ -1,6 +1,7 @@
 services:
 
   app:
+    image: projeto-springboot:latest
     build: .
     container_name: projeto-springboot-container
     ports:
