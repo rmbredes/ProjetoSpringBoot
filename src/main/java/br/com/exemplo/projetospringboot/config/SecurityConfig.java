@@ -213,6 +213,18 @@ public class SecurityConfig {
                                 csrf.disable()
                 )
 
+                /*
+                 * Permite que o console H2 seja exibido em um frame
+                 * quando a página pertence à própria aplicação.
+                 */
+                .headers(
+                        headers ->
+                                headers.frameOptions(
+                                        frameOptions ->
+                                                frameOptions.sameOrigin()
+                                )
+                )
+
                 .sessionManagement(
                         session ->
                                 session.sessionCreationPolicy(
@@ -242,7 +254,8 @@ public class SecurityConfig {
 
                                 .requestMatchers(
                                         "/auth/login",
-                                        "/auth/cadastrar"
+                                        "/auth/cadastrar",
+                                        "/h2-console/**"
                                 )
                                 .permitAll()
 

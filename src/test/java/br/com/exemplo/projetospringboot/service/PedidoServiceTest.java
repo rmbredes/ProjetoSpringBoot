@@ -14,6 +14,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import br.com.exemplo.projetospringboot.event.PedidoCriadoEvent;
+import org.mockito.ArgumentCaptor;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,8 +34,16 @@ class PedidoServiceTest {
     @Mock
     private PedidoRepository pedidoRepository;
 
+    /*
+     * Simula o serviço de Outbox para que este teste verifique
+     * somente a responsabilidade do PedidoService.
+     */
+    @Mock
+    private EventoOutboxService eventoOutboxService;
+
     @InjectMocks
     private PedidoService pedidoService;
+
 
     private Cliente cliente;
 
@@ -136,6 +147,49 @@ class PedidoServiceTest {
                 .save(
                         any(Pedido.class)
                 );
+
+
+        /*
+         * Captura o evento entregue ao serviço de Outbox para verificar
+         * se o PedidoService montou corretamente os dados do evento.
+         */
+        ArgumentCaptor<PedidoCriadoEvent> eventoCaptor =
+                ArgumentCaptor.forClass(PedidoCriadoEvent.class);
+
+        verify(
+                eventoOutboxService
+        ).registrarPedidoCriado(
+                eventoCaptor.capture()
+        );
+
+        /*
+         * Recupera o evento capturado para validar seus atributos.
+         */
+        PedidoCriadoEvent eventoRegistrado =
+                eventoCaptor.getValue();
+
+        assertNotNull(
+                eventoRegistrado.eventoId()
+        );
+
+        assertEquals(
+                10L,
+                eventoRegistrado.pedidoId()
+        );
+
+        assertEquals(
+                1L,
+                eventoRegistrado.clienteId()
+        );
+
+        assertEquals(
+                new BigDecimal("150.00"),
+                eventoRegistrado.valor()
+        );
+
+        assertNotNull(
+                eventoRegistrado.ocorridoEm()
+        );
     }
 
     @Test
