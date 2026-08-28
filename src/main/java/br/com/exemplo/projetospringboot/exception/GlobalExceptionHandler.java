@@ -12,8 +12,20 @@ import java.time.LocalDateTime;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /*
+     * Logger utilizado para registrar detalhes técnicos dos erros.
+     *
+     * Esses detalhes aparecem no terminal da aplicação, mas não são
+     * enviados ao cliente da API.
+     */
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErroResposta> tratarErroValidacao(
@@ -58,11 +70,29 @@ public class GlobalExceptionHandler {
                 .body(erro);
     }
 
+    /**
+     * Trata qualquer exceção que não possua um tratamento mais específico.
+     *
+     * O erro técnico completo é registrado no terminal, enquanto
+     * o cliente recebe uma mensagem genérica por segurança.
+     *
+     * @param exception exceção original ocorrida na aplicação
+     * @param request requisição que estava sendo processada
+     * @return resposta HTTP 500 sem detalhes internos sensíveis
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErroResposta> tratarErroGeral(
             Exception exception,
             HttpServletRequest request
     ) {
+        /*
+         * Registra a causa completa no terminal da aplicação.
+         */
+        LOGGER.error(
+                "Erro não tratado ao processar {}",
+                request.getRequestURI(),
+                exception
+        );
 
         ErroResposta erro = new ErroResposta(
                 LocalDateTime.now(),
