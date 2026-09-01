@@ -4,10 +4,13 @@ import br.com.exemplo.projetospringboot.entity.EventoOutbox;
 import br.com.exemplo.projetospringboot.enums.StatusEventoOutbox;
 import br.com.exemplo.projetospringboot.event.PedidoCriadoEvent;
 import br.com.exemplo.projetospringboot.repository.EventoOutboxRepository;
+import io.micrometer.observation.ObservationRegistry;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import tools.jackson.core.JacksonException;
@@ -41,11 +44,23 @@ class EventoOutboxServiceTest {
     @Mock
     private ObjectMapper objectMapper;
 
-    /**
-     * Cria o serviço testado e injeta automaticamente os mocks.
-     */
-    @InjectMocks
+    /** Serviço testado com observabilidade no-op. */
     private EventoOutboxService eventoOutboxService;
+
+    /**
+     * Cria o serviço com as dependências simuladas e componentes
+     * no-op, pois este teste verifica a persistência da Outbox.
+     */
+    @BeforeEach
+    void configurarServico() {
+        eventoOutboxService = new EventoOutboxService(
+                Tracer.NOOP,
+                Propagator.NOOP,
+                ObservationRegistry.NOOP,
+                eventoOutboxRepository,
+                objectMapper
+        );
+    }
 
     /**
      * Verifica se um evento de pedido é convertido para JSON

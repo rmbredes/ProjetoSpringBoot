@@ -1,0 +1,25 @@
+// Descobre o arquivo de log gravado pelo Spring Boot.
+local.file_match "spring_boot" {
+  path_targets = [{
+    "__path__"      = "/var/log/projeto-springboot/projeto-springboot.log",
+    "service_name"  = "ProjetoSpringBoot",
+    "environment"   = "local",
+  }]
+
+  // Detecta rapidamente o arquivo quando a aplicação é iniciada.
+  sync_period = "5s"
+}
+
+// Acompanha somente as novas linhas do arquivo descoberto.
+loki.source.file "spring_boot" {
+  targets       = local.file_match.spring_boot.targets
+  forward_to    = [loki.write.local.receiver]
+  tail_from_end = true
+}
+
+// Encaminha os registros para o Loki pela rede interna do Compose.
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

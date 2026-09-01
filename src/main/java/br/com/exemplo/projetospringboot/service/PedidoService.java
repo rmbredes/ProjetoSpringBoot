@@ -15,12 +15,29 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Serviço responsável pelas regras de negócio relacionadas aos pedidos.
  */
 @Service
 public class PedidoService {
 
+    /**
+     * Logger utilizado para acompanhar as operações de pedidos.
+     */
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(PedidoService.class);
+
+    /**
+     * Registro central usado para criar observações.
+     *
+     * Cada observação poderá produzir métricas e spans.
+     */
+    private final ObservationRegistry observationRegistry;
     /**
      * Repositório utilizado para consultar os clientes.
      */
@@ -45,10 +62,11 @@ public class PedidoService {
      * @param eventoOutboxService serviço responsável pela Outbox
      */
     public PedidoService(
-            ClienteRepository clienteRepository,
+            ObservationRegistry observationRegistry, ClienteRepository clienteRepository,
             PedidoRepository pedidoRepository,
             EventoOutboxService eventoOutboxService
     ) {
+        this.observationRegistry = observationRegistry;
         this.clienteRepository = clienteRepository;
         this.pedidoRepository = pedidoRepository;
         this.eventoOutboxService = eventoOutboxService;
@@ -67,66 +85,83 @@ public class PedidoService {
     public PedidoDTO criarPedido(
             PedidoDTO pedidoDTO
     ) {
-        /*
-         * Procura o cliente informado no pedido.
-         */
+        return Observation
+                .createNotStarted(
+                        "pedido.criar",
+                        observationRegistry
+                )
+                .observe(
+                        () -> executarCriacao(pedidoDTO)
+                );
+    }
+    /**
+     * Executa a criação do pedido dentro da observação iniciada
+     * pelo método público.
+     *
+     * @param pedidoDTO dados recebidos para criação
+     * @return pedido criado
+     */
+    private PedidoDTO executarCriacao(
+            PedidoDTO pedidoDTO
+    ) {
         Cliente cliente = clienteRepository
                 .findById(pedidoDTO.clienteId())
                 .orElseThrow();
 
-        /*
-         * Monta a entidade que será salva no banco.
-         */
         Pedido pedido = new Pedido();
 
         pedido.setCliente(cliente);
         pedido.setValor(pedidoDTO.valor());
         pedido.setDataCriacao(LocalDateTime.now());
 
-        /*
-         * Salva primeiro para que o banco gere o pedidoId.
-         *
-         * A confirmação definitiva ainda não aconteceu.
-         * Ela ocorrerá somente no final da transação.
-         */
-        Pedido pedidoSalvo = pedidoRepository.save(pedido);
+        Pedido pedidoSalvo =
+                pedidoRepository.save(pedido);
 
-        /*
-         * Cria a fotografia imutável do pedido no momento
-         * em que ele foi criado.
-         */
-        PedidoCriadoEvent evento = new PedidoCriadoEvent(
-                UUID.randomUUID(),
-                pedidoSalvo.getId(),
-                cliente.getId(),
-                pedidoSalvo.getValor(),
-                Instant.now()
-        );
+        PedidoCriadoEvent evento =
+                new PedidoCriadoEvent(
+                        UUID.randomUUID(),
+                        pedidoSalvo.getId(),
+                        cliente.getId(),
+                        pedidoSalvo.getValor(),
+                        Instant.now()
+                );
 
-        /*
-         * Registra o evento na tabela de Outbox.
-         *
-         * Esse método participa da mesma transação utilizada
-         * para salvar o pedido.
-         */
         eventoOutboxService.registrarPedidoCriado(evento);
 
-        /*
-         * Converte e retorna os dados do pedido salvo.
-         */
+        LOGGER.info(
+                "Pedido persistido com evento na Outbox: pedidoId={}",
+                pedidoSalvo.getId()
+        );
+
         return converterParaDTO(pedidoSalvo);
     }
-
     /**
      * Lista todos os pedidos cadastrados.
      *
      * @return lista de pedidos convertidos para DTO
      */
     public List<PedidoDTO> listar() {
-        return pedidoRepository.findAll()
-                .stream()
-                .map(this::converterParaDTO)
-                .toList();
+
+        return Observation
+                .createNotStarted(
+                        "pedido.listar",
+                        observationRegistry
+                )
+                .observe(() -> {
+
+                    List<PedidoDTO> pedidos =
+                            pedidoRepository.findAll()
+                                    .stream()
+                                    .map(this::converterParaDTO)
+                                    .toList();
+
+                    LOGGER.info(
+                            "Pedidos consultados: quantidade={}",
+                            pedidos.size()
+                    );
+
+                    return pedidos;
+                });
     }
 
     /**

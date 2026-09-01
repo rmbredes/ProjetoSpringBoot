@@ -15,6 +15,9 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Converte exceções da aplicação em respostas HTTP padronizadas e seguras.
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -27,17 +30,26 @@ public class GlobalExceptionHandler {
     private static final Logger LOGGER =
             LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    /**
+     * Agrupa os erros de validação dos campos em uma resposta HTTP 400.
+     *
+     * @param ex exceção contendo os campos inválidos
+     * @param request requisição que originou a validação
+     * @return resposta padronizada com as mensagens de validação
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErroResposta> tratarErroValidacao(
             MethodArgumentNotValidException ex,
             HttpServletRequest request) {
 
+        // Extrai cada mensagem de campo e as une em um único texto.
         String mensagem = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
 
+        // Monta o corpo padronizado usando o caminho da requisição inválida.
         ErroResposta erro = new ErroResposta(
                 LocalDateTime.now(),
                 HttpStatus.BAD_REQUEST.value(),
@@ -46,17 +58,26 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
 
+        // Devolve o corpo acompanhado do status de requisição inválida.
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(erro);
     }
 
+    /**
+     * Trata buscas sem resultado como recurso não encontrado.
+     *
+     * @param exception exceção lançada pela ausência da entidade
+     * @param request requisição que efetuou a busca
+     * @return resposta HTTP 404 padronizada
+     */
     @ExceptionHandler(NoSuchElementException.class)
     public ResponseEntity<ErroResposta> tratarNaoEncontrado(
             NoSuchElementException exception,
             HttpServletRequest request
     ) {
 
+        // Constrói a descrição pública do recurso que não foi localizado.
         ErroResposta erro = new ErroResposta(
                 LocalDateTime.now(),
                 HttpStatus.NOT_FOUND.value(),
@@ -65,6 +86,7 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
 
+        // Devolve o erro com o status HTTP correspondente.
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(erro);
@@ -94,6 +116,7 @@ public class GlobalExceptionHandler {
                 exception
         );
 
+        // Cria uma resposta genérica sem revelar detalhes internos da exceção.
         ErroResposta erro = new ErroResposta(
                 LocalDateTime.now(),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
@@ -102,6 +125,7 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
 
+        // Envia ao cliente o status de erro interno e o corpo padronizado.
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(erro);

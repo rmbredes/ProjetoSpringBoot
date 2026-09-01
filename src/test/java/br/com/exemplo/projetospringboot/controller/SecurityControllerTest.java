@@ -21,15 +21,22 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * Testa a autenticação JWT e as regras de autorização dos endpoints protegidos.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 class SecurityControllerTest {
 
+    /** Cliente HTTP de teste configurado com toda a cadeia de segurança. */
     @Autowired
     private MockMvc mockMvc;
 
+    /** Codificador real usado para produzir tokens válidos nos cenários. */
     @Autowired
     private JwtEncoder jwtEncoder;
+
+    /** Confirma que as dependências essenciais do teste foram inicializadas. */
     @Test
     void testeBasicoMockMvc() {
 
@@ -53,6 +60,7 @@ class SecurityControllerTest {
 
 
 
+    /** Confirma que um recurso protegido rejeita uma requisição sem token. */
     @Test
     void deveRetornar401QuandoNaoEnviarToken()
             throws Exception {
@@ -90,6 +98,7 @@ class SecurityControllerTest {
     // 401 - JWT INVÁLIDO
     // =====================================================
 
+    /** Confirma que um texto qualquer não é aceito como JWT. */
     @Test
     void deveRetornar401QuandoJwtForInvalido()
             throws Exception {
@@ -122,6 +131,7 @@ class SecurityControllerTest {
     // JWT VÁLIDO + ROLE_USER
     // =====================================================
 
+    /** Confirma que um usuário comum acessa um endpoint permitido à sua role. */
     @Test
     void devePermitirAcessoAClientesComJwtValido()
             throws Exception {
@@ -150,6 +160,7 @@ class SecurityControllerTest {
     // 403 - JWT VÁLIDO, MAS SEM ROLE_ADMIN
     // =====================================================
 
+    /** Confirma que autenticação válida não substitui a autorização exigida. */
     @Test
     void deveRetornar403QuandoUsuarioNaoForAdmin()
             throws Exception {
@@ -195,6 +206,7 @@ class SecurityControllerTest {
     // ROLE_ADMIN - ACESSO PERMITIDO
     // =====================================================
 
+    /** Confirma que a role administrativa libera o endpoint de administração. */
     @Test
     void devePermitirAcessoQuandoUsuarioForAdmin()
             throws Exception {
@@ -230,6 +242,7 @@ class SecurityControllerTest {
     // JWT EXPIRADO
     // =====================================================
 
+    /** Confirma que um JWT corretamente assinado deixa de valer após a expiração. */
     @Test
     void deveRetornar401QuandoJwtEstiverExpirado()
             throws Exception {
@@ -258,6 +271,7 @@ class SecurityControllerTest {
     // MÉTODO AUXILIAR - TOKEN VÁLIDO
     // =====================================================
 
+    /** Gera um token assinado e válido por uma hora para os testes. */
     private String gerarToken(
             String usuario,
             String roles
@@ -317,6 +331,7 @@ class SecurityControllerTest {
     // MÉTODO AUXILIAR - TOKEN EXPIRADO
     // =====================================================
 
+    /** Gera um token assinado cuja validade terminou antes da requisição. */
     private String gerarTokenExpirado(
             String usuario,
             String roles

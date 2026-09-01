@@ -1,0 +1,39 @@
+# Versão do formato de provisioning utilizado pelo Grafana.
+apiVersion: 1
+
+# Remove fontes provisionadas que deixarem de existir
+# neste arquivo em uma futura atualização.
+prune: true
+
+datasources:
+  # Define a fonte de métricas utilizada pelos dashboards.
+  - name: Prometheus
+
+    # Mantemos o UID que já está referenciado no JSON exportado.
+    #
+    # Como ele agora está declarado no Git, todas as novas
+    # instalações criarão a fonte com o mesmo identificador.
+    uid: cfwodj42mzqpsa
+
+    # Informa que a fonte utiliza o plugin nativo do Prometheus.
+    type: prometheus
+
+    # Faz o servidor Grafana executar as consultas.
+    # O navegador do usuário não acessa o Prometheus diretamente.
+    access: proxy
+
+    # Dentro da rede do Compose, o nome do serviço
+    # prometheus funciona como endereço DNS.
+    url: http://prometheus:9090
+
+    # Torna essa fonte a opção padrão para novos painéis.
+    isDefault: true
+
+    # Impede alterações manuais na configuração da fonte.
+    # A origem oficial passa a ser este arquivo.
+    editable: false
+
+    jsonData:
+      # Informa a frequência com que novas amostras
+      # normalmente são coletadas pelo Prometheus.
+      timeInterval: 5s

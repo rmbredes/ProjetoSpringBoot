@@ -4,16 +4,20 @@ import br.com.exemplo.projetospringboot.entity.EventoOutbox;
 import br.com.exemplo.projetospringboot.enums.StatusEventoOutbox;
 import br.com.exemplo.projetospringboot.event.PedidoCriadoEvent;
 import br.com.exemplo.projetospringboot.messaging.producer.PedidoProducer;
+import br.com.exemplo.projetospringboot.observability.metrics.OutboxMetrics;
 import br.com.exemplo.projetospringboot.repository.EventoOutboxRepository;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +25,10 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+
+import br.com.exemplo.projetospringboot.observability.logging.EventoLogContext;
+import org.junit.jupiter.api.AfterEach;
+import org.slf4j.MDC;
 
 /**
  * Testes unitários do serviço responsável pela publicação
@@ -48,10 +56,41 @@ class PublicadorEventoOutboxServiceTest {
     private ObjectMapper objectMapper;
 
     /**
-     * Cria o serviço testado e injeta automaticamente os mocks.
+     * Simula o componente responsável pelas métricas da Outbox.
      */
-    @InjectMocks
+    @Mock
+    private OutboxMetrics outboxMetrics;
+
+    /** Serviço testado com tracing no-op nos testes unitários. */
     private PublicadorEventoOutboxService publicadorEventoOutboxService;
+
+    /**
+     * Cria o serviço com as dependências simuladas e componentes
+     * de tracing no-op, pois estes testes verificam a regra da Outbox.
+     */
+    @BeforeEach
+    void configurarServico() {
+        publicadorEventoOutboxService =
+                new PublicadorEventoOutboxService(
+                        eventoOutboxRepository,
+                        pedidoProducer,
+                        objectMapper,
+                        outboxMetrics,
+                        Tracer.NOOP,
+                        Propagator.NOOP
+                );
+    }
+
+
+    /**
+     * Garante que nenhum teste deixe dados no MDC
+     * para o próximo teste executado na mesma thread.
+     */
+    @AfterEach
+    void limparMdc() {
+        MDC.clear();
+    }
+
 
     /**
      * Verifica se um evento pendente é enviado ao Kafka
@@ -110,16 +149,37 @@ class PublicadorEventoOutboxServiceTest {
         ).thenReturn(evento);
 
         /*
-         * Simula uma confirmação bem-sucedida do Kafka.
+         * Simula a confirmação do Kafka e verifica o MDC
+         * exatamente durante a chamada feita ao producer.
          */
         when(
                 pedidoProducer.publicar(evento)
-        ).thenReturn(
-                CompletableFuture.completedFuture(null)
-        );
+        ).thenAnswer(invocacao -> {
+            /*
+             * Neste momento ainda estamos dentro do contexto
+             * aberto pelo PublicadorEventoOutboxService.
+             */
+            assertEquals(
+                    eventoId.toString(),
+                    MDC.get(
+                            EventoLogContext.CHAVE_EVENTO_ID
+                    )
+            );
+
+            return CompletableFuture.completedFuture(null);
+        });
 
         publicadorEventoOutboxService.publicar(1L);
 
+        /*
+         * Após o método terminar, o try-with-resources deve
+         * remover automaticamente o eventoId da thread.
+         */
+        assertNull(
+                MDC.get(
+                        EventoLogContext.CHAVE_EVENTO_ID
+                )
+        );
         /*
          * Confirma que o registro foi alterado depois
          * da resposta bem-sucedida do Kafka.
@@ -148,6 +208,25 @@ class PublicadorEventoOutboxServiceTest {
         verify(
                 pedidoProducer
         ).publicar(evento);
+
+        /*
+         * Uma publicação confirmada deve registrar o período
+         * durante o qual o evento permaneceu na Outbox.
+         */
+        verify(
+                outboxMetrics
+        ).registrarTempoAtePublicacao(
+                any(Duration.class)
+        );
+
+        /*
+         * Uma publicação bem-sucedida não deve incrementar
+         * o contador de tentativas que falharam.
+         */
+        verify(
+                outboxMetrics,
+                never()
+        ).registrarFalhaPublicacao();
     }
 
     /**
@@ -220,6 +299,7 @@ class PublicadorEventoOutboxServiceTest {
                                 "Kafka indisponível"
                         )
                 )
+
         );
 
         publicadorEventoOutboxService.publicar(2L);
@@ -259,6 +339,27 @@ class PublicadorEventoOutboxServiceTest {
         verify(
                 pedidoProducer
         ).publicar(evento);
+
+        /*
+         * Confirma que a tentativa malsucedida também foi
+         * registrada na telemetria da aplicação.
+         */
+        verify(
+                outboxMetrics
+        ).registrarFalhaPublicacao();
+
+        /*
+         * Sem confirmação do Kafka, não existe uma publicação
+         * concluída cujo tempo deva ser registrado no Timer.
+         */
+        verify(
+                outboxMetrics,
+                never()
+        ).registrarTempoAtePublicacao(
+                any(Duration.class)
+        );
+
+
     }
 
     /**
@@ -308,5 +409,11 @@ class PublicadorEventoOutboxServiceTest {
          */
         verifyNoInteractions(objectMapper);
         verifyNoInteractions(pedidoProducer);
+
+        /*
+         * Um evento ignorado não representa uma nova falha
+         * de publicação e não deve alterar o Counter.
+         */
+        verifyNoInteractions(outboxMetrics);
     }
 }

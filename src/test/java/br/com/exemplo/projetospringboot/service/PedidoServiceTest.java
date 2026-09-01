@@ -1,5 +1,4 @@
 package br.com.exemplo.projetospringboot.service;
-/*TESTE*/
 import br.com.exemplo.projetospringboot.dto.PedidoDTO;
 import br.com.exemplo.projetospringboot.entity.Cliente;
 import br.com.exemplo.projetospringboot.entity.Pedido;
@@ -25,12 +24,16 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Testa as regras de pedidos e a criação do evento de domínio sem dependências reais.
+ */
 @ExtendWith(MockitoExtension.class)
 class PedidoServiceTest {
-/*ABCDE*/
+    /** Repositório simulado para localizar o cliente do pedido. */
     @Mock
     private ClienteRepository clienteRepository;
 
+    /** Repositório simulado para controlar as operações de pedidos. */
     @Mock
     private PedidoRepository pedidoRepository;
 
@@ -41,17 +44,21 @@ class PedidoServiceTest {
     @Mock
     private EventoOutboxService eventoOutboxService;
 
+    /** Serviço real que recebe automaticamente as dependências simuladas. */
     @InjectMocks
     private PedidoService pedidoService;
 
-
+    /** Cliente padrão usado nos cenários. */
     private Cliente cliente;
 
+    /** Pedido padrão usado nos cenários de consulta e exclusão. */
     private Pedido pedido;
 
+    /** Prepara entidades válidas e independentes antes de cada teste. */
     @BeforeEach
     void prepararDados() {
 
+        // Cria o cliente que será associado ao pedido.
         cliente =
                 new Cliente(
                         1L,
@@ -60,6 +67,7 @@ class PedidoServiceTest {
                         true
                 );
 
+        // Cria um pedido que representa um registro já persistido.
         pedido =
                 new Pedido(
                         10L,
@@ -75,9 +83,11 @@ class PedidoServiceTest {
                 );
     }
 
+    /** Confirma que pedido e evento de domínio são criados no mesmo fluxo. */
     @Test
     void deveCriarPedido() {
 
+        // Organiza os dados recebidos para a criação.
         PedidoDTO entrada =
                 new PedidoDTO(
                         null,
@@ -86,6 +96,7 @@ class PedidoServiceTest {
                         1L
                 );
 
+        // Simula a localização do cliente informado no pedido.
         when(
                 clienteRepository.findById(1L)
         )
@@ -93,6 +104,7 @@ class PedidoServiceTest {
                         Optional.of(cliente)
                 );
 
+        // Simula a persistência atribuindo o identificador gerado pelo banco.
         when(
                 pedidoRepository.save(
                         any(Pedido.class)
@@ -101,11 +113,14 @@ class PedidoServiceTest {
                 .thenAnswer(
                         invocation -> {
 
+                            // Recupera a entidade enviada ao repositório.
                             Pedido pedidoSalvo =
                                     invocation.getArgument(0);
 
+                            // Representa o identificador atribuído pelo banco.
                             pedidoSalvo.setId(10L);
 
+                            // Devolve a entidade persistida ao serviço.
                             return pedidoSalvo;
                         }
                 );
@@ -192,6 +207,7 @@ class PedidoServiceTest {
         );
     }
 
+    /** Confirma que todos os pedidos encontrados são convertidos para DTO. */
     @Test
     void deveListarPedidos() {
 
@@ -226,6 +242,7 @@ class PedidoServiceTest {
                 .findAll();
     }
 
+    /** Confirma a busca e a conversão de um pedido pelo identificador. */
     @Test
     void deveBuscarPedidoPorId() {
 
@@ -257,6 +274,7 @@ class PedidoServiceTest {
                 .findById(10L);
     }
 
+    /** Confirma o uso da consulta que filtra os pedidos por cliente. */
     @Test
     void deveListarPedidosPorCliente() {
 
@@ -286,6 +304,7 @@ class PedidoServiceTest {
                 .findByClienteId(1L);
     }
 
+    /** Confirma que um pedido existente é localizado e excluído. */
     @Test
     void deveExcluirPedido() {
 
@@ -309,6 +328,7 @@ class PedidoServiceTest {
                 .delete(pedido);
     }
 
+    /** Confirma que a ausência do pedido interrompe a busca com uma exceção. */
     @Test
     void deveLancarExcecaoQuandoPedidoNaoExistir() {
 

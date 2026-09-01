@@ -1,72 +1,295 @@
+# Declara os containers que formam o ambiente local do projeto.
 services:
 
+  # Executa a aplicação Spring Boot empacotada pelo projeto.
   app:
+    # Nome e tag da imagem local da aplicação.
     image: projeto-springboot:latest
+    # Constrói a imagem usando o Dockerfile da pasta atual.
     build: .
+    # Define um nome previsível para o container.
     container_name: projeto-springboot-container
+    # Publica a porta HTTP da aplicação no computador.
     ports:
       - "8080:8080"
+    # Fornece variáveis de ambiente ao processo Java.
     environment:
+      # Ativa as configurações específicas do ambiente Docker.
       SPRING_PROFILES_ACTIVE: docker
+    # Compartilha o arquivo de log com o computador e com o Alloy.
+    volumes:
+      - ./logs:/app/logs
+    # Inicia as dependências antes de iniciar a aplicação.
     depends_on:
       - postgres
       - redis
       - kafka
+      - jaeger
 
+  # Executa o banco PostgreSQL do ambiente local.
   postgres:
+    # Usa uma versão fixa da imagem oficial do PostgreSQL.
     image: postgres:17
+    # Define um nome conhecido para o container do banco.
     container_name: projeto-postgres
+    # Permite acessar o banco também pelo computador hospedeiro.
     ports:
       - "5432:5432"
+    # Configura a base e as credenciais criadas na primeira inicialização.
     environment:
+      # Nome da base criada automaticamente.
       POSTGRES_DB: projetodb
+      # Usuário administrador da base local.
       POSTGRES_USER: postgres
+      # Senha usada apenas neste ambiente de estudo.
       POSTGRES_PASSWORD: postgres
+    # Mantém os arquivos do banco fora do ciclo de vida do container.
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
+  # Executa o Redis utilizado pelo cache do Spring.
   redis:
+    # Usa uma versão fixa da imagem oficial do Redis.
     image: redis:7
+    # Define um nome previsível para o container.
     container_name: projeto-redis
+    # Publica a porta para testes e acesso externo.
     ports:
       - "6379:6379"
 
+  # Executa um nó Kafka local em modo KRaft, sem ZooKeeper.
   kafka:
+    # Usa a distribuição oficial do Apache Kafka.
     image: apache/kafka:4.3.1
+    # Define o nome DNS usado pelos outros containers.
     hostname: kafka
+    # Define um nome previsível para o container.
     container_name: projeto-kafka
+    # Publica o listener externo usado pelas aplicações no Windows.
     ports:
       - "9092:9092"
+    # Configura o broker Kafka e seu controller KRaft.
     environment:
+      # Identificador deste único nó do cluster.
       KAFKA_NODE_ID: 1
+      # Faz o nó atuar como broker e controller.
       KAFKA_PROCESS_ROLES: broker,controller
+      # Define o participante e a porta do quorum KRaft.
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      # Abre listeners separados para controller, host e rede interna.
       KAFKA_LISTENERS: CONTROLLER://:29093,EXTERNAL://:9092,INTERNAL://:29092
+      # Divulga endereços adequados aos clientes externos e internos.
       KAFKA_ADVERTISED_LISTENERS: EXTERNAL://localhost:9092,INTERNAL://kafka:29092
+      # Usa comunicação sem TLS no ambiente local.
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT
+      # Usa o listener interno na comunicação entre brokers.
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      # Identifica o listener reservado ao controller.
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # Permite tópicos internos com uma única réplica.
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      # Permite o log de transações com uma única réplica.
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      # Aceita uma única réplica sincronizada para transações locais.
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      # Evita atraso inicial no rebalanceamento dos grupos.
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # Define o diretório interno dos registros do Kafka.
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # Mantém uma identidade estável para o cluster local.
       CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+    # Persiste tópicos, offsets e registros fora do container.
     volumes:
       - kafka-data:/var/lib/kafka/data
 
 
+  # Disponibiliza uma interface web para inspecionar o Kafka.
   kafka-ui:
+    # Usa a imagem mantida pelo projeto Kafbat UI.
     image: ghcr.io/kafbat/kafka-ui:latest
+    # Define um nome previsível para o container.
     container_name: projeto-kafka-ui
+    # Publica a interface web na porta 8083 do computador.
     ports:
       - "8083:8080"
+    # Cadastra o cluster que será mostrado na interface.
     environment:
+      # Nome amigável exibido pela ferramenta.
       KAFKA_CLUSTERS_0_NAME: projeto-local
+      # Endereço interno usado para alcançar o broker.
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    # Solicita a inicialização do Kafka antes da interface.
     depends_on:
       - kafka
 
+  # Recebe, armazena e exibe os traces enviados pela aplicação.
+  jaeger:
+    # A imagem all-in-one reúne coletor, armazenamento em memória e interface web.
+    image: jaegertracing/all-in-one:1.76.0
+    container_name: projeto-jaeger
+
+    environment:
+      # Habilita o recebimento de telemetria pelo protocolo OTLP.
+      COLLECTOR_OTLP_ENABLED: "true"
+
+    ports:
+      # Interface web utilizada para pesquisar e visualizar os traces.
+      - "16686:16686"
+
+      # Porta OTLP via gRPC.
+      - "4317:4317"
+
+      # Porta OTLP via HTTP usada pela aplicação Spring Boot.
+      - "4318:4318"
+
+    restart: unless-stopped
+
+  # Armazena e consulta os logs centralizados da aplicação.
+  loki:
+    image: grafana/loki:3.7.0
+    container_name: projeto-loki
+
+    # Permite que o processo crie os diretórios iniciais
+    # dentro do volume local administrado pelo Docker Desktop.
+    # Usamos root somente neste ambiente de desenvolvimento.
+    user: "0"
+
+    ports:
+      # Disponibiliza a API local para diagnóstico.
+      - "3100:3100"
+
+    volumes:
+      # Fornece a configuração do servidor em modo somente leitura.
+      - ./observability/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+
+      # Preserva índices e blocos de logs entre recriações do container.
+      - loki-data:/tmp/loki
+
+    command:
+      - "-config.file=/etc/loki/local-config.yaml"
+
+    restart: unless-stopped
+
+  # Lê o arquivo produzido pelo Spring Boot e o encaminha ao Loki.
+  alloy:
+    image: grafana/alloy:v1.19.0
+    container_name: projeto-alloy
+
+    ports:
+      # Interface de diagnóstico do pipeline de coleta.
+      - "12345:12345"
+
+    volumes:
+      # Configuração declarativa do pipeline.
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+
+      # Mesmo diretório em que a aplicação grava o arquivo de log.
+      - ./logs:/var/log/projeto-springboot:ro
+
+      # Mantém a posição já lida no arquivo após reinicializações.
+      - alloy-data:/var/lib/alloy/data
+
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+
+    depends_on:
+      - loki
+
+    restart: unless-stopped
+
+  prometheus:
+    # Utiliza uma versão fixa para que nosso ambiente
+    # não mude inesperadamente entre execuções.
+    image: prom/prometheus:v3.14.0
+    container_name: projeto-prometheus
+
+    ports:
+      # Disponibiliza a interface web do Prometheus.
+      - "9090:9090"
+
+    volumes:
+      # Fornece nossa configuração ao container somente para leitura.
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+      # Preserva o histórico coletado mesmo quando
+      # o container for removido e recriado.
+      - prometheus-data:/prometheus
+
+    extra_hosts:
+      # Permite resolver host.docker.internal também em ambientes
+      # Docker que não criam esse endereço automaticamente.
+      - "host.docker.internal:host-gateway"
+
+    command:
+      # Informa o arquivo de configuração utilizado pelo servidor.
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+      # Define o diretório persistente das séries temporais.
+      - "--storage.tsdb.path=/prometheus"
+
+    restart: unless-stopped
+
+  grafana:
+    # Usa uma versão fixa da imagem oficial do Grafana
+    # para manter o ambiente local reproduzível.
+    image: grafana/grafana:13.1.3
+    container_name: projeto-grafana
+
+    ports:
+      # Expõe a interface web do Grafana no computador.
+      - "3000:3000"
+
+    environment:
+      # Credenciais simples utilizadas somente no ambiente local.
+      #
+      # Em produção, esses valores não devem permanecer diretamente
+      # no Compose; utilizaremos secrets ou variáveis protegidas.
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+
+      # Impede o cadastro público de usuários no ambiente local.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+
+    volumes:
+      # Preserva usuários e configurações internas do Grafana.
+      - grafana-data:/var/lib/grafana
+
+      # Disponibiliza a configuração automática da fonte Prometheus.
+      - ./observability/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+
+      # Disponibiliza a configuração dos providers de dashboards.
+      - ./observability/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+
+      # Disponibiliza os dashboards versionados para o provider.
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+    depends_on:
+      # Garante que o container do Prometheus seja iniciado
+      # antes do container do Grafana.
+      - prometheus
+      - loki
+
+    restart: unless-stopped
+
+# Declara os volumes persistentes utilizados pelos serviços.
 volumes:
+  # Preserva os dados do PostgreSQL.
   postgres-data:
+
+  # Preserva os dados internos do Kafka.
   kafka-data:
+
+  # Preserva o histórico de métricas do Prometheus.
+  prometheus-data:
+
+  # Preserva usuários e configurações internas do Grafana.
+  grafana-data:
+
+  # Preserva os logs armazenados pelo Loki.
+  loki-data:
+
+  # Preserva as posições de leitura mantidas pelo Alloy.
+  alloy-data:
