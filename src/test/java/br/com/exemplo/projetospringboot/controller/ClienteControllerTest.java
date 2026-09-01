@@ -24,15 +24,23 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * Testa o contrato HTTP do controlador de clientes isolado das demais camadas.
+ */
 @WebMvcTest(ClienteController.class)
 class ClienteControllerTest {
 
+    /** Cliente HTTP de teste que simula requisições ao controlador. */
     @Autowired
     private MockMvc mockMvc;
 
+    /** Simulação do serviço para controlar o resultado devolvido ao controlador. */
     @MockitoBean
     private ClienteService service;
 
+    /**
+     * Confirma que um usuário autenticado recebe a lista em JSON e com status 200.
+     */
     @Test
     @WithMockUser(
             username = "ricardo",
@@ -40,6 +48,7 @@ class ClienteControllerTest {
     )
     void deveListarClientes() throws Exception {
 
+        // Organiza o cliente que será devolvido pelo serviço simulado.
         ClienteDTO cliente =
                 new ClienteDTO(
                         1L,
@@ -48,6 +57,7 @@ class ClienteControllerTest {
                         true
                 );
 
+        // Programa o comportamento do serviço para este cenário.
         when(
                 service.listar()
         )
@@ -55,14 +65,17 @@ class ClienteControllerTest {
                         List.of(cliente)
                 );
 
+        // Executa a requisição GET contra o endpoint de clientes.
         mockMvc.perform(
                         get("/clientes")
                 )
 
+                // Confirma que a requisição foi atendida com sucesso.
                 .andExpect(
                         status().isOk()
                 )
 
+                // Confirma que o corpo possui um tipo compatível com JSON.
                 .andExpect(
                         content()
                                 .contentTypeCompatibleWith(
@@ -70,16 +83,19 @@ class ClienteControllerTest {
                                 )
                 )
 
+                // Valida o identificador do primeiro item retornado.
                 .andExpect(
                         jsonPath("$[0].id")
                                 .value(1)
                 )
 
+                // Valida o nome do cliente retornado.
                 .andExpect(
                         jsonPath("$[0].nome")
                                 .value("Ricardo")
                 )
 
+                // Valida o e-mail do cliente retornado.
                 .andExpect(
                         jsonPath("$[0].email")
                                 .value(
@@ -87,6 +103,7 @@ class ClienteControllerTest {
                                 )
                 )
 
+                // Valida a situação ativa do cliente.
                 .andExpect(
                         jsonPath("$[0].ativo")
                                 .value(true)

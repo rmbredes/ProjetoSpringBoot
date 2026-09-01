@@ -17,6 +17,18 @@ public interface EventoOutboxRepository
         extends JpaRepository<EventoOutbox, Long> {
 
     /**
+     * Conta quantos eventos possuem o status informado.
+     *
+     * Essa consulta será utilizada pela métrica que apresenta
+     * a quantidade atual de eventos pendentes na Outbox.
+     *
+     * @param status situação dos eventos contabilizados
+     * @return quantidade atual de eventos com o status
+     */
+    long countByStatus(
+            StatusEventoOutbox status
+    );
+    /**
      * Busca os eventos que possuem determinado status.
      *
      * Os registros são ordenados pela data de criação para que

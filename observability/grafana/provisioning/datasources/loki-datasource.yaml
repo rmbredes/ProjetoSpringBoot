@@ -1,0 +1,17 @@
+# Cadastra automaticamente o Loki quando o Grafana inicia.
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+
+    # Nome do serviço dentro da rede do Docker Compose.
+    url: http://loki:3100
+
+    # Prometheus continua sendo a fonte padrão dos dashboards.
+    isDefault: false
+
+    # A configuração versionada é a fonte oficial.
+    editable: false

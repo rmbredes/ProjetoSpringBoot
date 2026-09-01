@@ -9,6 +9,18 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
+
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Serviço responsável por registrar eventos na tabela de Outbox.
  *
@@ -17,6 +29,27 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Service
 public class EventoOutboxService {
+
+    /**
+     * Permite acessar o span que está ativo na thread atual.
+     */
+    private final Tracer tracer;
+
+    /**
+     * Converte o contexto do trace para headers padronizados
+     * e, posteriormente, faz o caminho inverso.
+     */
+    private final Propagator propagator;
+    /**
+     * Logger utilizado para acompanhar o registro dos eventos.
+     */
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(EventoOutboxService.class);
+
+    /**
+     * Registro utilizado para criar a observação da Outbox.
+     */
+    private final ObservationRegistry observationRegistry;
 
     /**
      * Nome do tópico que receberá os eventos de pedidos criados.
@@ -41,9 +74,12 @@ public class EventoOutboxService {
      * @param objectMapper componente utilizado para gerar o JSON
      */
     public EventoOutboxService(
-            EventoOutboxRepository eventoOutboxRepository,
+            Tracer tracer, Propagator propagator, ObservationRegistry observationRegistry, EventoOutboxRepository eventoOutboxRepository,
             ObjectMapper objectMapper
     ) {
+        this.tracer = tracer;
+        this.propagator = propagator;
+        this.observationRegistry = observationRegistry;
         this.eventoOutboxRepository = eventoOutboxRepository;
         this.objectMapper = objectMapper;
     }
@@ -63,6 +99,38 @@ public class EventoOutboxService {
     public void registrarPedidoCriado(
             PedidoCriadoEvent evento
     ) {
+        Observation
+                .createNotStarted(
+                        "outbox.registrar",
+                        observationRegistry
+                )
+                // Identificadores únicos ficam somente no trace.
+                //
+                // Não são adicionados às métricas porque produziriam
+                // uma quantidade muito grande de combinações.
+                .highCardinalityKeyValue(
+                        "evento.id",
+                        evento.eventoId().toString()
+                )
+                .highCardinalityKeyValue(
+                        "pedido.id",
+                        evento.pedidoId().toString()
+                )
+                .observe(
+                        () -> executarRegistro(evento)
+                );
+    }
+    /**
+     * Converte e persiste o evento dentro da observação ativa.
+     *
+     * @param evento evento que será registrado
+     */
+    private void executarRegistro(
+            PedidoCriadoEvent evento
+    ) {
+        Map<String, String> contextoTrace =
+                capturarContextoTrace();
+
         String payload = converterParaJson(evento);
 
         EventoOutbox eventoOutbox = new EventoOutbox(
@@ -70,12 +138,44 @@ public class EventoOutboxService {
                 PedidoCriadoEvent.class.getSimpleName(),
                 TOPICO_PEDIDOS_CRIADOS,
                 evento.pedidoId().toString(),
-                payload
+                payload,
+                contextoTrace.get("traceparent"),
+                contextoTrace.get("tracestate")
         );
 
         eventoOutboxRepository.save(eventoOutbox);
+
+        LOGGER.info(
+                "Evento registrado na Outbox: eventoId={}, pedidoId={}",
+                evento.eventoId(),
+                evento.pedidoId()
+        );
     }
 
+    /**
+     * Converte o contexto técnico do span atual
+     * em headers de propagação W3C.
+     *
+     * @return headers capturados ou mapa vazio quando não houver span
+     */
+    private Map<String, String> capturarContextoTrace() {
+        Span spanAtual = tracer.currentSpan();
+
+        if (spanAtual == null) {
+            return Map.of();
+        }
+
+        Map<String, String> contexto = new HashMap<>();
+
+        propagator.inject(
+                spanAtual.context(),
+                contexto,
+                (destino, nome, valor) ->
+                        destino.put(nome, valor)
+        );
+
+        return contexto;
+    }
     /**
      * Converte o evento Java em uma representação JSON.
      *

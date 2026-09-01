@@ -1,32 +1,62 @@
+# Sobrescreve as configurações locais quando o perfil docker está ativo.
 spring:
+  # Conecta a aplicação ao PostgreSQL da rede do Compose.
   datasource:
+    # Usa o nome do serviço postgres como endereço interno.
     url: jdbc:postgresql://postgres:5432/projetodb
+    # Driver JDBC do PostgreSQL.
     driver-class-name: org.postgresql.Driver
+    # Usuário criado pelo container do banco.
     username: postgres
+    # Senha local definida no Compose.
     password: postgres
 
+  # Conecta a aplicação ao listener interno do Kafka.
   kafka:
+    # Usa o nome do serviço e a porta acessível entre containers.
     bootstrap-servers: kafka:29092
 
+  # Ajusta o comportamento do JPA dentro do ambiente Docker.
   jpa:
     hibernate:
+      # Mantém o esquema alinhado às entidades sem apagar os dados.
       ddl-auto: update
+    # Evita imprimir todo o SQL pelo mecanismo padrão do JPA.
     show-sql: false
     properties:
       hibernate:
+        # Formata o SQL quando ele for exibido pelo logger configurado abaixo.
         format_sql: true
 
+  # Configura o Spring Data Redis.
   data:
     redis:
+      # Nome do serviço Redis na rede do Compose.
       host: redis
+      # Porta padrão do Redis.
       port: 6379
 
+  # Define o Redis como provedor do cache do Spring.
   cache:
+    # Seleciona a implementação distribuída do cache.
     type: redis
     redis:
+      # Expira cada entrada após dez minutos.
       time-to-live: 10m
 
+# Sobrescreve o endereço local quando a aplicação também roda no Compose.
+management:
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          # Usa o nome do serviço Jaeger dentro da rede Docker.
+          endpoint: http://jaeger:4318/v1/traces
+
+# Ajusta os níveis de log no perfil Docker.
 logging:
   level:
+    # Exibe os comandos SQL pelo logger do Hibernate.
     org.hibernate.SQL: DEBUG
+    # Exibe os valores associados aos parâmetros JDBC.
     org.hibernate.orm.jdbc.bind: TRACE
