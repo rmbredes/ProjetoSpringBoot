@@ -1,0 +1,38 @@
+# Versão do formato de provisioning utilizado pelo Grafana.
+apiVersion: 1
+
+providers:
+  # Identifica este conjunto de dashboards.
+  - name: projeto-springboot
+
+    # Organização padrão criada pelo Grafana local.
+    orgId: 1
+
+    # Coloca os dashboards provisionados em uma pasta
+    # específica dentro da interface do Grafana.
+    folder: Projeto Spring Boot
+
+    # Utiliza arquivos locais como fonte dos dashboards.
+    type: file
+
+    # Permite que o dashboard seja removido do Grafana
+    # caso seu arquivo seja removido futuramente.
+    disableDeletion: false
+
+    # Verifica periodicamente se o JSON foi atualizado.
+    updateIntervalSeconds: 10
+
+    # Permite experimentar alterações pela interface.
+    #
+    # Para tornar uma alteração permanente, o dashboard
+    # deverá ser exportado novamente para o repositório.
+    allowUiUpdates: true
+
+    options:
+      # Diretório interno do container onde o Compose
+      # disponibilizará os arquivos JSON.
+      path: /var/lib/grafana/dashboards
+
+      # Mantém todos os arquivos deste provider dentro
+      # da pasta Projeto Spring Boot definida acima.
+      foldersFromFilesStructure: false

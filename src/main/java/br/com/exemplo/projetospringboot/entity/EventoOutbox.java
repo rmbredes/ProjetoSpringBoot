@@ -147,6 +147,41 @@ public class EventoOutbox {
         this.quantidadeTentativas = 0;
     }
 
+
+    /**
+     * Cria um evento pendente preservando o contexto
+     * de tracing da operação que o originou.
+     *
+     * @param eventoId identificador único do evento
+     * @param tipoEvento tipo do evento
+     * @param topico tópico Kafka de destino
+     * @param chaveMensagem chave da mensagem
+     * @param payload conteúdo JSON
+     * @param traceParent contexto W3C do trace de origem
+     * @param traceState estado adicional opcional do trace
+     */
+    public EventoOutbox(
+            UUID eventoId,
+            String tipoEvento,
+            String topico,
+            String chaveMensagem,
+            String payload,
+            String traceParent,
+            String traceState
+    ) {
+        this.eventoId = eventoId;
+        this.tipoEvento = tipoEvento;
+        this.topico = topico;
+        this.chaveMensagem = chaveMensagem;
+        this.payload = payload;
+        this.traceParent = traceParent;
+        this.traceState = traceState;
+        this.status = StatusEventoOutbox.PENDENTE;
+        this.criadoEm = Instant.now();
+        this.quantidadeTentativas = 0;
+    }
+
+
     /**
      * Marca o evento como publicado depois que o Kafka
      * confirmar o recebimento da mensagem.
@@ -233,6 +268,21 @@ public class EventoOutbox {
     }
 
     /**
+     * Contexto W3C que identifica o trace e o span de origem.
+     *
+     * Permanece nulo para eventos antigos ou criados sem
+     * um contexto de tracing ativo.
+     */
+    @Column(name = "trace_parent", length = 255)
+    private String traceParent;
+
+    /**
+     * Informações adicionais opcionais do contexto W3C.
+     */
+    @Column(name = "trace_state", length = 512)
+    private String traceState;
+
+    /**
      * Retorna a situação atual da publicação.
      *
      * @return status do evento
@@ -275,5 +325,19 @@ public class EventoOutbox {
      */
     public String getUltimoErro() {
         return ultimoErro;
+    }
+
+    /**
+     * @return contexto W3C do trace de origem
+     */
+    public String getTraceParent() {
+        return traceParent;
+    }
+
+    /**
+     * @return estado adicional do trace de origem
+     */
+    public String getTraceState() {
+        return traceState;
     }
 }

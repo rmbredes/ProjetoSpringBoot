@@ -1,0 +1,28 @@
+global:
+  # Define a frequência com que o Prometheus coletará
+  # as métricas de todos os serviços configurados.
+  scrape_interval: 5s
+
+  # Define a frequência para avaliação de regras.
+  # Utilizaremos essas regras futuramente para alertas.
+  evaluation_interval: 5s
+
+scrape_configs:
+  # Identifica o conjunto de métricas da nossa aplicação.
+  - job_name: "projeto-springboot"
+
+    # Caminho completo considerando o context-path
+    # configurado na aplicação Spring Boot.
+    metrics_path: "/ProjetoSpringBoot/actuator/prometheus"
+
+    static_configs:
+      - targets:
+          # Dentro do container, localhost apontaria para o próprio
+          # Prometheus. host.docker.internal aponta para o Windows,
+          # onde a aplicação está sendo executada pela IDE.
+          - "host.docker.internal:8080"
+
+        labels:
+          # Labels fixas ajudam a identificar a origem das métricas.
+          application: "ProjetoSpringBoot"
+          environment: "local"

@@ -41,7 +41,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 
 import org.springframework.security.web.SecurityFilterChain;
-/*Teste*/
+
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -49,9 +49,21 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
+/*
+ * Fornece matchers específicos para endpoints do Actuator.
+ *
+ * Essa abordagem acompanha a configuração do Actuator mesmo
+ * se seu caminho padrão for alterado posteriormente.
+ */
+import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;
+
+/**
+ * Reúne os componentes e as regras de autenticação e autorização da aplicação.
+ */
 @Configuration
 public class SecurityConfig {
 
+    /** Chave textual lida da configuração e usada na assinatura dos JWTs. */
     @Value("${jwt.secret}")
     private String jwtSecret;
 
@@ -61,9 +73,11 @@ public class SecurityConfig {
      * =========================================================
      */
 
+    /** @return codificador BCrypt utilizado para proteger as senhas */
     @Bean
     public PasswordEncoder passwordEncoder() {
 
+        // Cria o algoritmo de hash usado tanto no cadastro quanto no login.
         return new BCryptPasswordEncoder();
     }
 
@@ -73,21 +87,25 @@ public class SecurityConfig {
      * =========================================================
      */
 
+    /** Configura como usuário e senha serão consultados e comparados. */
     @Bean
     public AuthenticationProvider authenticationProvider(
             CustomUserDetailsService userDetailsService,
             PasswordEncoder passwordEncoder
     ) {
 
+        // Cria o provedor que consulta usuários pelo serviço da aplicação.
         DaoAuthenticationProvider provider =
                 new DaoAuthenticationProvider(
                         userDetailsService
                 );
 
+        // Ensina ao provedor como comparar a senha recebida com o hash salvo.
         provider.setPasswordEncoder(
                 passwordEncoder
         );
 
+        // Disponibiliza o provedor configurado ao Spring Security.
         return provider;
     }
 
@@ -97,24 +115,28 @@ public class SecurityConfig {
      * =========================================================
      */
 
+    /** Obtém o gerenciador central que executa a autenticação. */
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration configuration
     ) throws Exception {
 
+        // Reutiliza o gerenciador montado automaticamente pelo Spring.
         return configuration
                 .getAuthenticationManager();
     }
-/*TESTE*/
+
     /*
      * =========================================================
      * JWT ENCODER
      * =========================================================
      */
 
+    /** Cria o componente que assina os tokens JWT da aplicação. */
     @Bean
     public JwtEncoder jwtEncoder() {
 
+        // Converte a chave textual em uma chave criptográfica HMAC-SHA256.
         SecretKey secretKey =
                 new SecretKeySpec(
                         jwtSecret.getBytes(
@@ -123,6 +145,7 @@ public class SecurityConfig {
                         "HmacSHA256"
                 );
 
+        // Cria o codificador com uma fonte de chave imutável.
         return new NimbusJwtEncoder(
                 new ImmutableSecret<>(secretKey)
         );
@@ -134,9 +157,11 @@ public class SecurityConfig {
      * =========================================================
      */
 
+    /** Cria o componente que valida assinatura e conteúdo dos JWTs recebidos. */
     @Bean
     public JwtDecoder jwtDecoder() {
 
+        // Reconstrói a mesma chave criptográfica usada durante a assinatura.
         SecretKey secretKey =
                 new SecretKeySpec(
                         jwtSecret.getBytes(
@@ -145,6 +170,7 @@ public class SecurityConfig {
                         "HmacSHA256"
                 );
 
+        // Exige que os tokens tenham sido assinados com HMAC-SHA256.
         return NimbusJwtDecoder
                 .withSecretKey(secretKey)
                 .macAlgorithm(
@@ -159,26 +185,32 @@ public class SecurityConfig {
      * =========================================================
      */
 
+    /** Converte a claim textual de roles em autoridades do Spring Security. */
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
 
+        // Cria o conversor que será personalizado para nossa claim roles.
         JwtAuthenticationConverter converter =
                 new JwtAuthenticationConverter();
 
+        // Define como extrair as permissões existentes dentro do JWT.
         converter.setJwtGrantedAuthoritiesConverter(
                 jwt -> {
 
+                    // Lê a claim criada pelo JwtService durante o login.
                     String roles =
                             jwt.getClaimAsString(
                                     "roles"
                             );
 
+                    // Um token sem roles não recebe qualquer autoridade.
                     if (roles == null ||
                             roles.isBlank()) {
 
                         return List.of();
                     }
 
+                    // Separa as roles e converte cada texto em uma autoridade.
                     return Arrays
                             .stream(
                                     roles.split(" ")
@@ -188,6 +220,7 @@ public class SecurityConfig {
                 }
         );
 
+        // Disponibiliza o conversor personalizado à cadeia de segurança.
         return converter;
     }
 
@@ -197,6 +230,7 @@ public class SecurityConfig {
      * =========================================================
      */
 
+    /** Configura os filtros e as regras de acesso aplicadas a cada requisição HTTP. */
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
@@ -206,8 +240,10 @@ public class SecurityConfig {
             CustomAccessDeniedHandler accessDeniedHandler
     ) throws Exception {
 
+        // Inicia a configuração encadeada da segurança HTTP.
         http
 
+                // Desativa CSRF porque a API não mantém sessão no servidor.
                 .csrf(
                         csrf ->
                                 csrf.disable()
@@ -225,6 +261,7 @@ public class SecurityConfig {
                                 )
                 )
 
+                // Impede a criação de sessão e exige credenciais em cada requisição.
                 .sessionManagement(
                         session ->
                                 session.sessionCreationPolicy(
@@ -232,10 +269,12 @@ public class SecurityConfig {
                                 )
                 )
 
+                // Registra o provedor que autentica usuário e senha.
                 .authenticationProvider(
                         authenticationProvider
                 )
 
+                // Padroniza as respostas para falhas de autenticação e autorização.
                 .exceptionHandling(
                         exception ->
                                 exception
@@ -249,6 +288,7 @@ public class SecurityConfig {
                                         )
                 )
 
+                // Define as permissões necessárias para cada grupo de endpoints.
                 .authorizeHttpRequests(
                         authorize -> authorize
 
@@ -281,11 +321,49 @@ public class SecurityConfig {
                                 .hasRole(
                                         "ADMIN"
                                 )
+                                /*
+                                 * Restringe o endpoint de diagnóstico detalhado
+                                 * de métricas aos administradores da aplicação.
+                                 */
+                                .requestMatchers(
+                                        EndpointRequest.to(
+                                                "metrics"
+                                        )
+                                )
+                                .hasRole(
+                                        "ADMIN"
+                                )
+
+                                /*
+                                 * Permite que o servidor Prometheus realize coletas automáticas
+                                 * sem depender de um JWT de usuário, que possui expiração.
+                                 *
+                                 * Em produção, esse endpoint deverá ficar disponível somente
+                                 * dentro da rede utilizada pela infraestrutura de monitoramento.
+                                 */
+                                .requestMatchers(
+                                        EndpointRequest.to(
+                                                "prometheus"
+                                        )
+                                )
+                                .permitAll()
+                                /*
+                                 * Permite que ferramentas de infraestrutura consultem
+                                 * o health check sem precisar obter e renovar um JWT.
+                                 *
+                                 * A exposição de componentes e detalhes continua controlada
+                                 * por show-components e show-details no application.yaml.
+                                 */
+                                .requestMatchers(
+                                        EndpointRequest.to("health")
+                                )
+                                .permitAll()
 
                                 .anyRequest()
                                 .authenticated()
                 )
 
+                // Habilita o processamento de JWT no cabeçalho Bearer.
                 .oauth2ResourceServer(
                         oauth2 ->
                                 oauth2
@@ -302,6 +380,7 @@ public class SecurityConfig {
                                         )
                 );
 
+        // Constrói e devolve a cadeia de filtros configurada.
         return http.build();
     }
 }

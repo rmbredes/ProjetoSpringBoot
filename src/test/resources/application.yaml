@@ -1,21 +1,88 @@
+# Isola a configuração usada durante a execução dos testes automatizados.
 spring:
-
+  # Utiliza um banco H2 temporário mantido somente em memória.
   datasource:
+    # Cria uma base exclusiva para a suíte de testes.
     url: jdbc:h2:mem:testdb
+    # Driver JDBC utilizado para acessar o H2.
     driver-class-name: org.h2.Driver
+    # Usuário padrão da base em memória.
     username: sa
+    # Mantém a senha vazia apenas no ambiente descartável de teste.
     password:
 
+  # Controla o esquema criado para cada execução da suíte.
   jpa:
     hibernate:
+      # Cria as tabelas no início e as remove ao encerrar os testes.
       ddl-auto: create-drop
 
+    # Evita poluir a saída dos testes com comandos SQL.
     show-sql: false
 
+  # Desativa a interface web do H2, que não é necessária nos testes.
   h2:
     console:
+      # Impede a criação do endpoint do console.
       enabled: false
 
+# Usa uma configuração de JWT própria do ambiente de teste.
 jwt:
+  # Chave previsível usada somente para assinar tokens de teste.
   secret: "esta-chave-deve-ser-grande-e-secreta-com-pelo-menos-32-bytes"
+  # Define validade de uma hora para os tokens gerados na suíte.
   expiration: 3600
+
+# Reproduz no teste a configuração operacional do Actuator.
+management:
+  # Mantém a suíte independente de um servidor Jaeger em execução.
+  tracing:
+    export:
+      otlp:
+        enabled: false
+
+  # Desliga também a exportação de métricas no arquivo exclusivo dos testes.
+  otlp:
+    metrics:
+      export:
+        enabled: false
+
+  # Configura a exposição dos endpoints.
+  endpoints:
+    # Aplica as regras à interface HTTP.
+    web:
+      # Seleciona os endpoints disponíveis durante a suíte.
+      exposure:
+        # Expõe durante os testes os mesmos endpoints
+        # operacionais utilizados pela aplicação.
+        #
+        # Isso permite testar tanto o conteúdo das métricas
+        # quanto as regras de segurança do endpoint Prometheus.
+        include: health,metrics,prometheus
+
+  # Configura individualmente o endpoint de saúde.
+  endpoint:
+    health:
+      # Mantém nos testes a mesma política utilizada
+      # pela aplicação para exibir os componentes.
+      show-components: when-authorized
+
+      # Permite verificar nos testes que somente usuários
+      # autenticados recebem detalhes técnicos.
+      show-details: when-authorized
+
+  # Controla os indicadores de saúde ativos durante os testes.
+  health:
+    redis:
+      # Impede que a suíte dependa de um Redis externo.
+      #
+      # O funcionamento real do Redis já foi validado
+      # por meio do teste manual realizado anteriormente.
+      enabled: false
+
+    kafka:
+      # Os testes de integração do Actuator não dependem
+      # de um broker Kafka externo.
+      #
+      # O KafkaHealthIndicator possui testes unitários próprios.
+      enabled: false

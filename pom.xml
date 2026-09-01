@@ -1,18 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Arquivo Maven que descreve o projeto, suas dependências e sua construção. -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <!-- Versão do modelo de configuração do Maven. -->
     <modelVersion>4.0.0</modelVersion>
+    <!-- Herda versões compatíveis e configurações padrão do Spring Boot. -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>4.1.0</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <!-- Busca o projeto pai no repositório Maven, não no disco local. -->
+        <relativePath/>
     </parent>
+    <!-- Identifica a organização responsável pelo artefato. -->
     <groupId>br.com.exemplo</groupId>
+    <!-- Define o nome técnico do artefato gerado. -->
     <artifactId>ProjetoSpringBoot</artifactId>
+    <!-- Indica uma versão ainda em desenvolvimento. -->
     <version>0.0.1-SNAPSHOT</version>
+    <!-- Nome amigável do projeto. -->
     <name>ProjetoSpringBoot</name>
+    <!-- Descrição resumida exibida pelas ferramentas Maven. -->
     <description>ProjetoSpringBoot</description>
+    <!-- Metadados opcionais ainda não preenchidos neste projeto de estudo. -->
     <url/>
     <licenses>
         <license/>
@@ -26,88 +36,145 @@
         <tag/>
         <url/>
     </scm>
+    <!-- Centraliza propriedades reutilizadas durante a construção. -->
     <properties>
+        <!-- Compila e executa o projeto com Java 21. -->
         <java.version>21</java.version>
     </properties>
+    <!-- Lista as bibliotecas disponíveis para compilação, execução e testes. -->
     <dependencies>
+        <!-- Fornece o núcleo, a inicialização automática e o sistema de logs do Spring Boot. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
 
+        <!-- Reúne JUnit, Mockito e ferramentas gerais de teste do Spring Boot. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Cria APIs HTTP com Spring MVC e servidor incorporado. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+        <!-- Habilita validações declarativas como @NotNull e @Valid. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!-- Disponibiliza o banco H2 somente durante a execução da aplicação. -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Integra JPA, Hibernate e repositórios Spring Data. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
+        <!-- Fornece autenticação, autorização e a cadeia de filtros de segurança. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+        <!-- Valida tokens JWT recebidos como credenciais Bearer. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
+        <!-- Fornece assinatura, codificação e leitura de JWT no padrão JOSE. -->
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-oauth2-jose</artifactId>
         </dependency>
+        <!-- Disponibiliza utilitários de segurança específicos para os testes. -->
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Permite testar controladores MVC de forma isolada com MockMvc. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Disponibiliza o driver PostgreSQL durante a execução. -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Integra o Spring Data ao Redis. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
+        <!-- Habilita a abstração de cache e suas anotações. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-cache</artifactId>
         </dependency>
+        <!-- Integra produtores, consumers e administração do Apache Kafka. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-kafka</artifactId>
         </dependency>
 
+        <!-- Disponibiliza separadamente o console web do H2 no Spring Boot 4. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-h2console</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!--
+            Adiciona os recursos operacionais do Spring Boot Actuator.
+
+            O Actuator fornece endpoints para observar a aplicação,
+            incluindo saúde, métricas e informações operacionais.
+
+            O projeto também utiliza sua integração com Micrometer e Prometheus.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!--
+            Habilita tracing com Micrometer e OpenTelemetry.
+
+            O Spring Boot cria automaticamente o tracer e os componentes
+            necessários para acompanhar requisições observadas.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-opentelemetry</artifactId>
+        </dependency>
+
+        <!--
+        Adiciona o registrador do Micrometer específico para Prometheus.
+
+        Quando esta dependência está no classpath, o Spring Boot
+        cria automaticamente o PrometheusMeterRegistry e disponibiliza
+        o endpoint /actuator/prometheus quando ele estiver exposto.
+    -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
 
     </dependencies>
 
+    <!-- Configura como o artefato final será construído. -->
     <build>
+        <!-- Lista os plugins executados pelo Maven. -->
         <plugins>
+            <!-- Empacota a aplicação e suas dependências em um JAR executável. -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

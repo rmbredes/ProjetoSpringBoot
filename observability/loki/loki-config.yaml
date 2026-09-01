@@ -1,0 +1,49 @@
+# Executa o Loki local sem autenticação.
+# Esta configuração é apropriada somente para desenvolvimento.
+auth_enabled: false
+
+server:
+  # Porta HTTP utilizada pelo Alloy e pelo Grafana.
+  http_listen_port: 3100
+
+  # Reduz o volume dos próprios logs internos do Loki.
+  log_level: info
+
+common:
+  # Mantém todos os dados abaixo do volume persistente montado.
+  path_prefix: /tmp/loki
+
+  # Usa armazenamento local porque temos uma única instância.
+  storage:
+    filesystem:
+      chunks_directory: /tmp/loki/chunks
+      rules_directory: /tmp/loki/rules
+
+  # Uma única réplica é suficiente no ambiente de estudo.
+  replication_factor: 1
+
+  ring:
+    kvstore:
+      store: inmemory
+
+query_range:
+  # Mantém em memória resultados recentes de consultas.
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100
+
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+# Não envia estatísticas anônimas deste ambiente local.
+analytics:
+  reporting_enabled: false

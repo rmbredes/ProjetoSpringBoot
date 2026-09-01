@@ -3,7 +3,14 @@ package br.com.exemplo.projetospringboot.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-/*TESTE*/
+/**
+ * Transporta os dados utilizados no cadastro e na consulta de usuários.
+ *
+ * @param id identificador gerado pelo banco
+ * @param username nome utilizado para autenticação
+ * @param senha senha recebida no cadastro
+ * @param role perfil de autorização associado ao usuário
+ */
 public record UsuarioDTO(
         Long id,
 

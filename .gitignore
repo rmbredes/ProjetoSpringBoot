@@ -34,3 +34,11 @@ build/
 
 ### Banco H2 local ###
 data/*.db
+
+### Logs locais ###
+logs/*.log*
+
+### Artefatos locais de documentação ###
+tmp/
+output/
+build_observability_tutorial.py

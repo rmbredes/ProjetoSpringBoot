@@ -1,45 +1,192 @@
+# Agrupa as configurações reconhecidas pelo ecossistema Spring.
 spring:
+  # Identifica a aplicação em logs, métricas e integrações.
   application:
+    # Nome lógico do serviço.
     name: ProjetoSpringBoot
 
+  # Configura a comunicação da aplicação com o Kafka local.
   kafka:
+    # Endereço do broker acessível pela aplicação executada fora do Docker.
     bootstrap-servers: localhost:9092
 
+    # Define como o produtor transforma chaves e valores em bytes.
     producer:
+      # Serializa a chave textual de cada mensagem.
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # Serializa o evento Java no formato JSON.
       value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
 
+    # Define como os consumers recebem e interpretam as mensagens.
     consumer:
+      # Converte os bytes da chave novamente em texto.
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # Converte o JSON recebido em um objeto Java.
       value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      # Começa pelo primeiro registro disponível quando o grupo ainda não possui offset.
       auto-offset-reset: earliest
 
+      # Reúne propriedades adicionais do desserializador JSON.
       properties:
+        # Restringe a desserialização aos eventos do pacote conhecido pela aplicação.
         spring.json.trusted.packages: br.com.exemplo.projetospringboot.event
+
+    # Configura o cliente administrativo usado no health check e na criação de tópicos.
+    admin:
+      # Limita o tempo que o KafkaAdmin espera pela conclusão
+      # de uma operação administrativa.
+      operation-timeout: 3s
+
+      # Limita o encerramento do cliente administrativo
+      # depois da consulta ao Kafka.
+      close-timeout: 1s
+
+      # Reúne limites de tempo enviados diretamente ao cliente Kafka.
+      properties:
+        # Limita o tempo total disponível para uma chamada
+        # administrativa realizada pelo cliente Kafka.
+        "[default.api.timeout.ms]": 3000
+
+        # Limita o tempo de espera por uma resposta individual
+        # enviada ao broker Kafka.
+        "[request.timeout.ms]": 3000
+
+    # Habilita observações nos envios realizados pelo KafkaTemplate.
+    #
+    # O contexto atual será incluído nos headers da mensagem,
+    # permitindo sua propagação para os consumers.
+    template:
+      observation-enabled: true
+
+    # Habilita observações nos containers dos @KafkaListener.
+    #
+    # Cada consumer extrairá o contexto recebido e criará
+    # seu próprio span para o processamento.
+    listener:
+      observation-enabled: true
+  # Configura o banco H2 persistido em arquivo para a execução local.
   datasource:
+    # Local do arquivo que armazenará os dados da aplicação.
     url: jdbc:h2:file:./data/projetodb
+    # Driver JDBC responsável pela conexão com o H2.
     driver-class-name: org.h2.Driver
+    # Usuário padrão do banco local.
     username: sa
+    # Senha vazia usada somente neste ambiente de estudo.
     password:
 
+  # Configura o JPA e sua implementação Hibernate.
   jpa:
+    # Controla a criação e a atualização das tabelas pelas entidades.
     hibernate:
+      # Atualiza o esquema sem apagar os dados existentes.
       ddl-auto: update
-    show-sql: true
+    # Exibe no terminal os comandos SQL executados.
+    show-sql: false
+    # Reúne opções específicas do Hibernate.
     properties:
       hibernate:
+        # Formata o SQL em várias linhas para facilitar a leitura.
         format_sql: true
 
+  # Disponibiliza a interface web do banco H2 no ambiente local.
   h2:
     console:
+      # Habilita o console durante o desenvolvimento.
       enabled: true
+      # Define o endereço relativo da interface do H2.
       path: /h2-console
 
+# Configura o servidor HTTP incorporado.
 server:
+  # Porta em que a aplicação recebe as requisições.
   port: 8080
+  # Configura o contexto da aplicação web.
   servlet:
+    # Prefixo comum de todos os endpoints HTTP.
     context-path: /ProjetoSpringBoot
 
+# Configura os tokens de autenticação da aplicação.
 jwt:
+  # Chave local usada para assinar e validar os tokens.
   secret: "esta-chave-deve-ser-grande-e-secreta-com-pelo-menos-32-bytes"
-  expiration: 3600
+  # Mantém o token válido por um dia, em segundos.
+  expiration: 86400
+
+# Configura os endpoints operacionais fornecidos pelo Actuator.
+management:
+  # Reúne as configurações gerais dos endpoints.
+  endpoints:
+    # Configura a exposição desses endpoints pela web.
+    web:
+      # Define quais endpoints podem ser acessados por HTTP.
+      exposure:
+        # Expõe somente os endpoints necessários nesta etapa.
+        #
+        # Não utilizamos "*" porque outros endpoints podem revelar
+        # configurações internas ou informações sensíveis.
+        include: health,metrics,prometheus
+
+  # Reúne configurações particulares de cada endpoint.
+  endpoint:
+    # Personaliza a resposta do endpoint de saúde.
+    health:
+      # Configurações de health já existentes.
+      show-components: when-authorized
+      show-details: when-authorized
+
+  # Configura a criação e a exportação dos traces.
+  tracing:
+    # Define a porcentagem das operações que receberão tracing.
+    sampling:
+      # Durante o estudo, registra 100% das operações.
+      #
+      # Em produção normalmente utilizaremos uma porcentagem menor
+      # para controlar o volume de dados.
+      probability: 1.0
+    export:
+      otlp:
+        # Envia os spans criados pela aplicação para o Jaeger.
+        enabled: true
+
+  # Configura o destino da exportação OpenTelemetry.
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          # A aplicação iniciada pela IDE acessa a porta publicada pelo Compose.
+          endpoint: http://localhost:4318/v1/traces
+
+  # Desliga o envio de métricas via OTLP
+  # enquanto não houver um Collector disponível.
+  otlp:
+    metrics:
+      export:
+        enabled: false
+
+# Personaliza o formato dos logs produzidos pela aplicação.
+logging:
+  # Mantém os logs no console e também em arquivo.
+  #
+  # O Grafana Alloy acompanhará este arquivo e enviará
+  # cada nova linha para o Loki.
+  file:
+    name: ./logs/projeto-springboot.log
+
+  # Controla o nível mínimo registrado por pacote.
+  level:
+    # Oculta mensagens informativas internas do cliente Kafka,
+    # como a impressão completa do ProducerConfig.
+    #
+    # Avisos e erros continuarão aparecendo.
+    org.apache.kafka: WARN
+
+    # Oculta mensagens informativas sobre atribuição
+    # e reatribuição das partições aos listeners.
+    org.springframework.kafka.listener.KafkaMessageListenerContainer: WARN
+
+  # Define padrões adicionados às mensagens de log.
+  pattern:
+    # Inclui no log os identificadores técnicos do trace
+    # e o identificador de negócio transportado pelo evento.
+    correlation: "[traceId=%X{traceId:-sem-trace} spanId=%X{spanId:-sem-span} eventoId=%X{eventoId:-sem-evento}] "
