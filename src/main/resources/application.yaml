@@ -75,6 +75,17 @@ spring:
     # Senha vazia usada somente neste ambiente de estudo.
     password:
 
+
+  # Configura o recebimento de arquivos por requisições multipart.
+  servlet:
+    multipart:
+      # Impede que um único arquivo ultrapasse 10 MB.
+      max-file-size: 10MB
+
+      # Permite pequena margem para os demais campos e cabeçalhos
+      # existentes na requisição multipart.
+      max-request-size: 11MB
+
   # Configura o JPA e sua implementação Hibernate.
   jpa:
     # Controla a criação e a atualização das tabelas pelas entidades.

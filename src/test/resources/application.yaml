@@ -1,5 +1,15 @@
 # Isola a configuração usada durante a execução dos testes automatizados.
 spring:
+
+  # Configura o recebimento de arquivos por requisições multipart.
+  servlet:
+    multipart:
+      # Impede que um único arquivo ultrapasse 10 MB.
+      max-file-size: 10MB
+
+      # Permite pequena margem para os demais campos e cabeçalhos
+      # existentes na requisição multipart.
+      max-request-size: 11MB
   # Utiliza um banco H2 temporário mantido somente em memória.
   datasource:
     # Cria uma base exclusiva para a suíte de testes.
