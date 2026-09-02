@@ -190,3 +190,28 @@ logging:
     # Inclui no log os identificadores técnicos do trace
     # e o identificador de negócio transportado pelo evento.
     correlation: "[traceId=%X{traceId:-sem-trace} spanId=%X{spanId:-sem-span} eventoId=%X{eventoId:-sem-evento}] "
+# Configura as integrações da aplicação com serviços da AWS.
+application:
+  aws:
+    # Configura o armazenamento de anexos no Amazon S3.
+    s3:
+      # Bucket privado criado para armazenar os anexos dos pedidos.
+      #
+      # O nome do bucket não é uma senha, mas fica centralizado aqui
+      # para não ser repetido nas classes Java.
+      bucket-name: recomeco-pedidos-anexos-df33a1eb
+
+      # Região em que o bucket foi criado.
+      #
+      # O cliente S3 precisa saber a região correta para encaminhar
+      # cada requisição ao endpoint apropriado da AWS.
+      region: sa-east-1
+
+      # Perfil configurado no arquivo local da AWS CLI.
+      #
+      # Esse perfil assume a role ProjetoSpringBootS3DevRole,
+      # que possui acesso limitado aos objetos dentro de pedidos/*.
+      #
+      # Quando a aplicação for implantada na AWS, não utilizaremos
+      # um perfil local. O ECS fornecerá as credenciais por uma role.
+      credentials-profile: projeto-s3
