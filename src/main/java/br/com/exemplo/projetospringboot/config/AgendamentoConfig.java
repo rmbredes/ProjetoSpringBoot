@@ -3,18 +3,29 @@ package br.com.exemplo.projetospringboot.config;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 /**
  * Configuração responsável por habilitar a execução
  * de tarefas agendadas na aplicação.
  *
- * Depois desta configuração, o Spring reconhecerá métodos
- * anotados com @Scheduled.
+ * <p>A propriedade {@code app.scheduling.enabled} permite
+ * desligar todos os agendamentos em ambientes nos quais eles
+ * não devem executar, como na suíte comum de testes.</p>
+ *
+ * <p>O {@code matchIfMissing = true} mantém o comportamento
+ * atual da aplicação: se a propriedade não for informada,
+ * os agendamentos continuarão habilitados.</p>
  */
 @Configuration
 @EnableScheduling
+@ConditionalOnProperty(
+        prefix = "app.scheduling",
+        name = "enabled",
+        havingValue = "true",
+        matchIfMissing = true
+)
 public class AgendamentoConfig {
 
     /**
@@ -30,7 +41,7 @@ public class AgendamentoConfig {
             name = "taskScheduler",
             destroyMethod = "shutdown"
     )
-    public TaskScheduler taskScheduler() {
+    public ThreadPoolTaskScheduler taskScheduler() {
         ThreadPoolTaskScheduler scheduler =
                 new ThreadPoolTaskScheduler();
 
