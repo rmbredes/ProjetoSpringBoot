@@ -1,8 +1,10 @@
 package br.com.exemplo.projetospringboot.service;
 
 import br.com.exemplo.projetospringboot.dto.AnexoPedidoDTO;
+import br.com.exemplo.projetospringboot.dto.UrlDownloadAnexoDTO;
 import br.com.exemplo.projetospringboot.entity.AnexoPedido;
 import br.com.exemplo.projetospringboot.entity.Pedido;
+import br.com.exemplo.projetospringboot.enums.StatusAnexoPedido;
 import br.com.exemplo.projetospringboot.exception.ArmazenamentoAnexoException;
 import br.com.exemplo.projetospringboot.exception.ArquivoAnexoInvalidoException;
 import br.com.exemplo.projetospringboot.repository.AnexoPedidoRepository;
@@ -19,7 +21,10 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -67,6 +72,12 @@ public class AnexoPedidoService {
      * Limite compatível com a coluna nome_original.
      */
     private static final int TAMANHO_MAXIMO_NOME = 255;
+
+    /**
+     * Tempo de validade concedido a cada URL pré-assinada.
+     */
+    private static final Duration DURACAO_URL_DOWNLOAD =
+            Duration.ofMinutes(5);
 
     private static final Logger LOGGER =
             LoggerFactory.getLogger(AnexoPedidoService.class);
@@ -122,6 +133,141 @@ public class AnexoPedidoService {
                 .observe(() ->
                         executarEnvio(pedidoId, arquivo)
                 );
+    }
+
+    /**
+     * Lista somente os anexos disponíveis de determinado pedido.
+     *
+     * <p>Registros PENDENTE, FALHA ou EXCLUIDO permanecem no banco
+     * para diagnóstico e histórico, mas não são apresentados como
+     * arquivos disponíveis ao usuário.</p>
+     *
+     * @param pedidoId identificador do pedido
+     * @return anexos disponíveis, do mais recente para o mais antigo
+     */
+    public List<AnexoPedidoDTO> listar(Long pedidoId) {
+        return Observation
+                .createNotStarted(
+                        "anexo.listar",
+                        observationRegistry
+                )
+                .observe(() -> {
+                    exigirPedidoExistente(pedidoId);
+
+                    return anexoPedidoRepository
+                            .findAllByPedidoIdAndStatusOrderByCriadoEmDesc(
+                                    pedidoId,
+                                    StatusAnexoPedido.DISPONIVEL
+                            )
+                            .stream()
+                            .map(this::converterParaDTO)
+                            .toList();
+                });
+    }
+
+    /**
+     * Gera uma autorização temporária de download para um anexo.
+     *
+     * @param pedidoId identificador do pedido proprietário
+     * @param anexoId identificador interno do anexo
+     * @return URL assinada e seu instante de expiração
+     */
+    public UrlDownloadAnexoDTO gerarUrlDownload(
+            Long pedidoId,
+            Long anexoId
+    ) {
+        return Observation
+                .createNotStarted(
+                        "anexo.download.url",
+                        observationRegistry
+                )
+                .lowCardinalityKeyValue(
+                        "storage",
+                        "s3"
+                )
+                .observe(() -> {
+                    AnexoPedido anexo =
+                            buscarAnexoDisponivel(
+                                    pedidoId,
+                                    anexoId
+                            );
+
+                    Instant expiraEm = Instant.now()
+                            .plus(DURACAO_URL_DOWNLOAD);
+
+                    String url = storageService
+                            .generateDownloadUrl(
+                                    anexo.getObjectKey(),
+                                    anexo.getNomeOriginal(),
+                                    DURACAO_URL_DOWNLOAD
+                            )
+                            .toString();
+
+                    LOGGER.info(
+                            "URL temporária gerada: pedidoId={}, anexoId={}, expiraEm={}",
+                            pedidoId,
+                            anexoId,
+                            expiraEm
+                    );
+
+                    return new UrlDownloadAnexoDTO(
+                            url,
+                            expiraEm
+                    );
+                });
+    }
+
+    /**
+     * Remove o objeto do S3 e registra sua exclusão lógica no banco.
+     *
+     * <p>O registro não é apagado fisicamente para preservar o
+     * histórico. Ele deixa de aparecer na listagem porque passa
+     * para o estado EXCLUIDO.</p>
+     *
+     * @param pedidoId identificador do pedido proprietário
+     * @param anexoId identificador do anexo
+     */
+    public void excluir(
+            Long pedidoId,
+            Long anexoId
+    ) {
+        Observation
+                .createNotStarted(
+                        "anexo.excluir",
+                        observationRegistry
+                )
+                .lowCardinalityKeyValue(
+                        "storage",
+                        "s3"
+                )
+                .observe(() -> {
+                    AnexoPedido anexo =
+                            buscarAnexoDisponivel(
+                                    pedidoId,
+                                    anexoId
+                            );
+
+                    try {
+                        storageService.delete(
+                                anexo.getObjectKey()
+                        );
+                    } catch (RuntimeException exception) {
+                        throw new ArmazenamentoAnexoException(
+                                "Não foi possível excluir o anexo",
+                                exception
+                        );
+                    }
+
+                    anexo.marcarComoExcluido();
+                    anexoPedidoRepository.save(anexo);
+
+                    LOGGER.info(
+                            "Anexo excluído: pedidoId={}, anexoId={}, objectKey={}",
+                            pedidoId,
+                            anexoId,
+                            anexo.getObjectKey()
+                    );
+                });
     }
 
     /**
@@ -345,6 +491,43 @@ public class AnexoPedidoService {
                 + pedidoId
                 + "/anexos/"
                 + UUID.randomUUID();
+    }
+
+    /**
+     * Confirma que o pedido informado existe antes da listagem.
+     */
+    private void exigirPedidoExistente(Long pedidoId) {
+        if (!pedidoRepository.existsById(pedidoId)) {
+            throw new NoSuchElementException(
+                    "Pedido não encontrado"
+            );
+        }
+    }
+
+    /**
+     * Localiza um anexo dentro de seu pedido e exige que ele esteja
+     * disponível para download ou exclusão.
+     */
+    private AnexoPedido buscarAnexoDisponivel(
+            Long pedidoId,
+            Long anexoId
+    ) {
+        AnexoPedido anexo = anexoPedidoRepository
+                .findByIdAndPedidoId(anexoId, pedidoId)
+                .orElseThrow(() ->
+                        new NoSuchElementException(
+                                "Anexo não encontrado"
+                        )
+                );
+
+        if (anexo.getStatus()
+                != StatusAnexoPedido.DISPONIVEL) {
+            throw new NoSuchElementException(
+                    "Anexo não encontrado"
+            );
+        }
+
+        return anexo;
     }
 
     /**

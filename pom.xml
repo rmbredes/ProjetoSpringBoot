@@ -220,6 +220,46 @@
         </dependency>
 
         <!--
+            Cliente do Amazon Simple Queue Service (SQS).
+
+            Utilizaremos diretamente o AWS SDK para tornar visíveis
+            as operações principais da fila:
+            - enviar uma mensagem;
+            - receber uma mensagem;
+            - excluir uma mensagem depois do processamento.
+
+            A versão será fornecida pelo BOM do AWS SDK declarado acima.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sqs</artifactId>
+        </dependency>
+
+        <!--
+            Cliente do Amazon Simple Notification Service (SNS).
+
+            Nesta primeira etapa, ele será usado somente para publicar
+            o evento que informa a disponibilidade de um relatório.
+            O próprio SNS entregará a mensagem aos assinantes do tópico.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sns</artifactId>
+        </dependency>
+
+        <!--
+            Biblioteca utilizada para criar o relatório em PDF.
+
+            O arquivo será pequeno porque utilizaremos somente texto,
+            formas simples e fontes padrão do próprio formato PDF.
+        -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.8</version>
+        </dependency>
+
+        <!--
             Cliente do AWS Security Token Service (STS).
 
             O STS permite que a aplicação assuma temporariamente a role

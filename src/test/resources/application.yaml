@@ -114,3 +114,14 @@ application:
       # Com isso, a suíte não depende do perfil projeto-s3 existente
       # somente no seu computador.
       credentials-profile: ""
+
+    # Mantém os testes comuns independentes da fila real da AWS.
+    # O teste de integração específico habilita o SQS explicitamente.
+    sqs:
+      enabled: false
+      consumer-enabled: false
+      audit-consumer-enabled: false
+
+    # Os testes comuns não publicam notificações nem acessam o tópico real.
+    sns:
+      enabled: false

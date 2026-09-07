@@ -226,3 +226,59 @@ application:
       # Quando a aplicação for implantada na AWS, não utilizaremos
       # um perfil local. O ECS fornecerá as credenciais por uma role.
       credentials-profile: projeto-s3
+
+    # Configura o addon responsável pela geração assíncrona
+    # de relatórios de pedidos com o Amazon SQS.
+    sqs:
+      # Permite desligar somente a integração SQS sem afetar
+      # Kafka, anexos, S3 ou os demais endpoints da aplicação.
+      enabled: true
+
+      # Região onde as filas do laboratório foram criadas.
+      region: sa-east-1
+
+      # Endereço completo da fila principal.
+      #
+      # A aplicação não precisa conhecer a URL da DLQ porque
+      # o redirecionamento das falhas é administrado pelo SQS.
+      queue-url: https://sqs.sa-east-1.amazonaws.com/033649548808/recomeco-relatorios-pedidos-dev
+
+      # Reutiliza o mesmo perfil temporário já empregado pelo S3.
+      # Nenhuma access key ou secret key será armazenada no projeto.
+      credentials-profile: projeto-s3
+
+      # Tempo máximo que uma chamada de recebimento aguardará
+      # por uma nova mensagem antes de retornar vazia.
+      wait-time-seconds: 20
+
+      # Liga o job que consulta e processa mensagens da fila.
+      # Pode ser desligado sem impedir que o producer envie mensagens.
+      consumer-enabled: true
+
+      # Depois que uma consulta terminar, aguarda cinco segundos
+      # antes de iniciar a próxima.
+      polling-delay-ms: 5000
+
+      # Fila que recebe do SNS uma cópia de cada evento de relatório.
+      audit-queue-url: https://sqs.sa-east-1.amazonaws.com/033649548808/recomeco-auditoria-relatorios-dev
+
+      # Liga separadamente o consumer responsável pela auditoria.
+      audit-consumer-enabled: true
+
+      # Intervalo entre as consultas da fila de auditoria.
+      audit-polling-delay-ms: 5000
+
+    # Configura o addon que publica eventos no Amazon SNS.
+    sns:
+      # Permite desligar as notificações sem afetar a geração do PDF,
+      # o banco, o S3, o SQS ou os demais recursos da aplicação.
+      enabled: true
+
+      # Região onde o tópico foi criado.
+      region: sa-east-1
+
+      # ARN do tópico que distribui os eventos de relatório disponível.
+      topic-arn: arn:aws:sns:sa-east-1:033649548808:recomeco-eventos-relatorios-dev
+
+      # Reutiliza o perfil temporário já empregado pelo S3 e pelo SQS.
+      credentials-profile: projeto-s3

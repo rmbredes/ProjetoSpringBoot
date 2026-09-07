@@ -1,7 +1,10 @@
 package br.com.exemplo.projetospringboot.config;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 /**
  * Configuração responsável por habilitar a execução
@@ -14,10 +17,28 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class AgendamentoConfig {
 
-    /*
-     * Esta classe não precisa possuir métodos.
+    /**
+     * Cria o agendador padrão utilizado pelos jobs já existentes,
+     * incluindo o job da Outbox responsável pelo fluxo Kafka.
      *
-     * A anotação @EnableScheduling é suficiente para habilitar
-     * o mecanismo de agendamento do Spring.
+     * <p>Ele é separado do sqsTaskScheduler para que o long polling
+     * do Amazon SQS não interrompa ou atrase os outros jobs.</p>
+     *
+     * @return agendador padrão da aplicação
      */
+    @Bean(
+            name = "taskScheduler",
+            destroyMethod = "shutdown"
+    )
+    public TaskScheduler taskScheduler() {
+        ThreadPoolTaskScheduler scheduler =
+                new ThreadPoolTaskScheduler();
+
+        scheduler.setPoolSize(1);
+        scheduler.setThreadNamePrefix("jobs-aplicacao-");
+        scheduler.setWaitForTasksToCompleteOnShutdown(true);
+        scheduler.setAwaitTerminationSeconds(30);
+
+        return scheduler;
+    }
 }

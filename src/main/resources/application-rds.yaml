@@ -1,0 +1,55 @@
+# Este arquivo complementa application.yaml quando o perfil "rds" está ativo.
+#
+# O arquivo principal continua configurando o H2 para o desenvolvimento local.
+# Assim, executar a aplicação normalmente não depende da AWS. Para utilizar o
+# PostgreSQL do Amazon RDS, ativamos este perfil de forma explícita.
+spring:
+  datasource:
+    # O endpoint, a porta e o nome do banco são fornecidos externamente.
+    #
+    # Nenhuma senha ou endereço específico do ambiente fica gravado no Git.
+    # A porta recebe 5432 como valor padrão por ser a porta convencional do
+    # PostgreSQL, mas ainda pode ser sobrescrita por RDS_PORT.
+    url: jdbc:postgresql://${RDS_HOST}:${RDS_PORT:5432}/${RDS_DATABASE:projetodb}
+
+    # Credenciais recebidas do ambiente em que a aplicação for executada.
+    # No computador local, usaremos variáveis temporárias do PowerShell.
+    # No ECS, esses valores serão fornecidos por configurações protegidas.
+    username: ${RDS_USERNAME}
+    password: ${RDS_PASSWORD}
+
+    # Driver JDBC que traduz as operações do Java para o protocolo PostgreSQL.
+    driver-class-name: org.postgresql.Driver
+
+    # HikariCP é o pool de conexões utilizado automaticamente pelo Spring Boot.
+    hikari:
+      # A instância db.t4g.micro possui apenas 1 GiB de memória.
+      # Um pool pequeno evita abrir conexões demais no banco de estudo.
+      maximum-pool-size: 5
+      minimum-idle: 1
+
+      # Evita que a inicialização fique esperando indefinidamente quando houver
+      # erro de endpoint, firewall ou credencial.
+      connection-timeout: 10000
+      validation-timeout: 5000
+
+      data-source-properties:
+        # verify-full exige uma conexão criptografada e também valida se o
+        # certificado apresentado pertence ao endpoint acessado.
+        sslmode: verify-full
+
+        # Caminho do pacote de certificados oficial do Amazon RDS.
+        # O arquivo será baixado no computador, fora do repositório.
+        sslrootcert: ${RDS_SSL_ROOT_CERT}
+
+  jpa:
+    hibernate:
+      # Mantemos o mesmo comportamento didático usado localmente: o Hibernate
+      # cria ou atualiza as tabelas com base nas entidades existentes.
+      # Futuramente substituiremos isso por migrações versionadas com Flyway.
+      ddl-auto: update
+
+  h2:
+    console:
+      # O console H2 não tem utilidade quando a fonte de dados ativa é o RDS.
+      enabled: false

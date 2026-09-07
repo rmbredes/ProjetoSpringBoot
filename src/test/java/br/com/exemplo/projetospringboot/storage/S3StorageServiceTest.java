@@ -9,12 +9,20 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -48,6 +56,10 @@ class S3StorageServiceTest {
     @Mock
     private S3Client s3Client;
 
+    /** Simulação do componente que assina URLs de download. */
+    @Mock
+    private S3Presigner s3Presigner;
+
     /**
      * Serviço que será testado.
      */
@@ -76,6 +88,7 @@ class S3StorageServiceTest {
          */
         storageService = new S3StorageService(
                 s3Client,
+                s3Presigner,
                 properties
         );
     }
@@ -170,5 +183,98 @@ class S3StorageServiceTest {
          */
         assertThat(eTag)
                 .isEqualTo("\"etag-teste\"");
+    }
+
+    /**
+     * Confirma que a URL é assinada para a key, o nome e a duração
+     * informados pela camada de negócio.
+     */
+    @Test
+    void deveGerarUrlTemporariaParaDownload() throws Exception {
+        PresignedGetObjectRequest respostaAssinada =
+                org.mockito.Mockito.mock(
+                        PresignedGetObjectRequest.class
+                );
+
+        when(respostaAssinada.url())
+                .thenReturn(
+                        URI.create(
+                                "https://bucket-teste.s3.amazonaws.com/objeto?assinatura=teste"
+                        ).toURL()
+                );
+
+        when(s3Presigner.presignGetObject(
+                any(GetObjectPresignRequest.class)
+        )).thenReturn(respostaAssinada);
+
+        URI resultado = storageService.generateDownloadUrl(
+                "pedidos/1/anexos/arquivo",
+                "nota fiscal.pdf",
+                Duration.ofMinutes(5)
+        );
+
+        ArgumentCaptor<GetObjectPresignRequest> captor =
+                ArgumentCaptor.forClass(
+                        GetObjectPresignRequest.class
+                );
+
+        verify(s3Presigner).presignGetObject(
+                captor.capture()
+        );
+
+        GetObjectPresignRequest requisicao =
+                captor.getValue();
+
+        GetObjectRequest getObjectRequest =
+                requisicao.getObjectRequest();
+
+        assertThat(requisicao.signatureDuration())
+                .isEqualTo(Duration.ofMinutes(5));
+
+        assertThat(getObjectRequest.bucket())
+                .isEqualTo("bucket-teste");
+
+        assertThat(getObjectRequest.key())
+                .isEqualTo("pedidos/1/anexos/arquivo");
+
+        assertThat(getObjectRequest.responseContentDisposition())
+                .isEqualTo(
+                        "attachment; filename*=UTF-8''nota%20fiscal.pdf"
+                );
+
+        assertThat(resultado.toString())
+                .contains("assinatura=teste");
+    }
+
+    /**
+     * Confirma que a exclusão utiliza o bucket configurado e a key
+     * recebida do serviço de anexos.
+     */
+    @Test
+    void deveExcluirObjetoDoBucketConfigurado() {
+        when(s3Client.deleteObject(
+                any(DeleteObjectRequest.class)
+        )).thenReturn(
+                DeleteObjectResponse.builder().build()
+        );
+
+        storageService.delete(
+                "pedidos/1/anexos/arquivo"
+        );
+
+        ArgumentCaptor<DeleteObjectRequest> captor =
+                ArgumentCaptor.forClass(
+                        DeleteObjectRequest.class
+                );
+
+        verify(s3Client).deleteObject(
+                captor.capture()
+        );
+
+        assertThat(captor.getValue().bucket())
+                .isEqualTo("bucket-teste");
+
+        assertThat(captor.getValue().key())
+                .isEqualTo("pedidos/1/anexos/arquivo");
     }
 }

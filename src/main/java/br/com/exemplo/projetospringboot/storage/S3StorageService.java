@@ -4,10 +4,19 @@ import br.com.exemplo.projetospringboot.config.aws.AwsS3Properties;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 /**
  * Encapsula as operações de armazenamento realizadas no Amazon S3.
@@ -16,9 +25,9 @@ import java.io.InputStream;
  * PutObjectRequest e RequestBody. As outras camadas da aplicação não
  * precisarão conhecer esses detalhes.</p>
  *
- * <p>Nesta primeira etapa, implementamos somente o envio de objetos.
- * Depois adicionaremos consulta, download, geração de URL temporária
- * e exclusão.</p>
+ * <p>A classe implementa o envio, a geração de URL temporária para
+ * download e a exclusão de objetos. Nenhuma dessas operações torna
+ * o bucket público.</p>
  */
 @Service
 public class S3StorageService {
@@ -29,6 +38,12 @@ public class S3StorageService {
      * <p>Ele realiza as chamadas HTTPS para a API do Amazon S3.</p>
      */
     private final S3Client s3Client;
+
+    /**
+     * Componente que cria URLs assinadas sem alterar a privacidade
+     * configurada no bucket.
+     */
+    private final S3Presigner s3Presigner;
 
     /**
      * Configurações carregadas do application.yaml.
@@ -55,9 +70,11 @@ public class S3StorageService {
      */
     public S3StorageService(
             S3Client s3Client,
+            S3Presigner s3Presigner,
             AwsS3Properties properties
     ) {
         this.s3Client = s3Client;
+        this.s3Presigner = s3Presigner;
         this.properties = properties;
     }
 
@@ -125,5 +142,79 @@ public class S3StorageService {
          * O ETag não deve ser considerado sempre um hash MD5.
          */
         return response.eTag();
+    }
+
+    /**
+     * Cria uma URL temporária para baixar um objeto privado.
+     *
+     * <p>O nome original é incluído em Content-Disposition para que
+     * o navegador sugira um nome compreensível ao salvar o arquivo,
+     * em vez de utilizar o UUID existente no final da key.</p>
+     *
+     * @param objectKey key do objeto no bucket
+     * @param nomeOriginal nome sugerido durante o download
+     * @param duracao tempo durante o qual a URL será aceita
+     * @return URI assinada que aponta diretamente para o S3
+     */
+    public URI generateDownloadUrl(
+            String objectKey,
+            String nomeOriginal,
+            Duration duracao
+    ) {
+        /*
+         * Codifica espaços, acentos e caracteres especiais segundo
+         * o formato aceito no parâmetro filename* do cabeçalho HTTP.
+         */
+        String nomeCodificado = URLEncoder
+                .encode(
+                        nomeOriginal,
+                        StandardCharsets.UTF_8
+                )
+                .replace("+", "%20");
+
+        GetObjectRequest getObjectRequest =
+                GetObjectRequest.builder()
+                        .bucket(properties.bucketName())
+                        .key(objectKey)
+                        .responseContentDisposition(
+                                "attachment; filename*=UTF-8''"
+                                        + nomeCodificado
+                        )
+                        .build();
+
+        /*
+         * A duração passa a fazer parte da assinatura. Depois desse
+         * período, o próprio S3 recusará a mesma URL.
+         */
+        GetObjectPresignRequest presignRequest =
+                GetObjectPresignRequest.builder()
+                        .signatureDuration(duracao)
+                        .getObjectRequest(getObjectRequest)
+                        .build();
+
+        PresignedGetObjectRequest presignedRequest =
+                s3Presigner.presignGetObject(presignRequest);
+
+        return URI.create(
+                presignedRequest.url().toString()
+        );
+    }
+
+    /**
+     * Remove um objeto do bucket.
+     *
+     * <p>A operação DELETE do S3 é idempotente: solicitar novamente
+     * a remoção da mesma key não recria o objeto nem produz conteúdo.</p>
+     *
+     * @param objectKey key do objeto que será removido
+     */
+    public void delete(String objectKey) {
+        DeleteObjectRequest request =
+                DeleteObjectRequest.builder()
+                        .bucket(properties.bucketName())
+                        .key(objectKey)
+                        .build();
+
+        s3Client.deleteObject(request);
     }
 }

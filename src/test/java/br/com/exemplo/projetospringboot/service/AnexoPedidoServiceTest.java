@@ -1,6 +1,7 @@
 package br.com.exemplo.projetospringboot.service;
 
 import br.com.exemplo.projetospringboot.dto.AnexoPedidoDTO;
+import br.com.exemplo.projetospringboot.dto.UrlDownloadAnexoDTO;
 import br.com.exemplo.projetospringboot.entity.AnexoPedido;
 import br.com.exemplo.projetospringboot.entity.Pedido;
 import br.com.exemplo.projetospringboot.enums.StatusAnexoPedido;
@@ -19,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.InputStream;
+import java.net.URI;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -310,6 +312,132 @@ class AnexoPedidoServiceTest {
                         StatusAnexoPedido.PENDENTE,
                         StatusAnexoPedido.FALHA
                 );
+    }
+
+    /**
+     * Confirma que a listagem apresenta somente os registros
+     * devolvidos pela consulta de anexos disponíveis.
+     */
+    @Test
+    void deveListarAnexosDisponiveisDoPedido() {
+        Pedido pedido = criarPedido(30L);
+        AnexoPedido anexo = criarAnexoDisponivel(
+                pedido,
+                "pedidos/30/anexos/listagem"
+        );
+
+        when(pedidoRepository.existsById(30L))
+                .thenReturn(true);
+
+        when(anexoPedidoRepository
+                .findAllByPedidoIdAndStatusOrderByCriadoEmDesc(
+                        30L,
+                        StatusAnexoPedido.DISPONIVEL
+                ))
+                .thenReturn(List.of(anexo));
+
+        List<AnexoPedidoDTO> resultado =
+                service.listar(30L);
+
+        assertThat(resultado)
+                .hasSize(1);
+
+        assertThat(resultado.getFirst().pedidoId())
+                .isEqualTo(30L);
+
+        assertThat(resultado.getFirst().status())
+                .isEqualTo(StatusAnexoPedido.DISPONIVEL);
+    }
+
+    /**
+     * Confirma que a URL temporária é solicitada para a key correta.
+     */
+    @Test
+    void deveGerarUrlTemporariaDoAnexoDisponivel() {
+        Pedido pedido = criarPedido(40L);
+        AnexoPedido anexo = criarAnexoDisponivel(
+                pedido,
+                "pedidos/40/anexos/download"
+        );
+
+        when(anexoPedidoRepository.findByIdAndPedidoId(
+                5L,
+                40L
+        )).thenReturn(Optional.of(anexo));
+
+        when(storageService.generateDownloadUrl(
+                eq(anexo.getObjectKey()),
+                eq(anexo.getNomeOriginal()),
+                any()
+        )).thenReturn(
+                URI.create("https://s3.exemplo/url-assinada")
+        );
+
+        UrlDownloadAnexoDTO resultado =
+                service.gerarUrlDownload(40L, 5L);
+
+        assertThat(resultado.url())
+                .isEqualTo("https://s3.exemplo/url-assinada");
+
+        assertThat(resultado.expiraEm())
+                .isAfter(java.time.Instant.now());
+    }
+
+    /**
+     * Confirma que o objeto é removido antes de a entidade passar
+     * para o estado EXCLUIDO.
+     */
+    @Test
+    void deveExcluirObjetoERegistrarExclusaoNoBanco() {
+        Pedido pedido = criarPedido(50L);
+        AnexoPedido anexo = criarAnexoDisponivel(
+                pedido,
+                "pedidos/50/anexos/exclusao"
+        );
+
+        when(anexoPedidoRepository.findByIdAndPedidoId(
+                8L,
+                50L
+        )).thenReturn(Optional.of(anexo));
+
+        when(anexoPedidoRepository.save(anexo))
+                .thenReturn(anexo);
+
+        service.excluir(50L, 8L);
+
+        verify(storageService).delete(
+                anexo.getObjectKey()
+        );
+
+        verify(anexoPedidoRepository).save(anexo);
+
+        assertThat(anexo.getStatus())
+                .isEqualTo(StatusAnexoPedido.EXCLUIDO);
+    }
+
+    /**
+     * Cria um anexo válido e confirma seu upload para os cenários
+     * de listagem, download e exclusão.
+     */
+    private AnexoPedido criarAnexoDisponivel(
+            Pedido pedido,
+            String objectKey
+    ) {
+        AnexoPedido anexo = new AnexoPedido(
+                pedido,
+                objectKey,
+                "arquivo.txt",
+                "text/plain",
+                100L,
+                "cccccccccccccccccccccccccccccccc"
+                        + "cccccccccccccccccccccccccccccccc"
+        );
+
+        anexo.marcarComoDisponivel(
+                "\"etag-teste\""
+        );
+
+        return anexo;
     }
 
     /**

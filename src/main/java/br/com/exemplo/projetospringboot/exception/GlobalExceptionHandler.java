@@ -179,6 +179,58 @@ public class GlobalExceptionHandler {
                 .body(erro);
     }
 
+    /**
+     * Converte uma falha de publicação do relatório em HTTP 502.
+     *
+     * <p>O código 502 informa que nossa API recebeu a requisição,
+     * mas não conseguiu concluir a comunicação com o serviço externo.</p>
+     */
+    @ExceptionHandler(PublicacaoRelatorioException.class)
+    public ResponseEntity<ErroResposta> tratarFalhaPublicacaoRelatorio(
+            PublicacaoRelatorioException exception,
+            HttpServletRequest request
+    ) {
+        LOGGER.error(
+                "Falha ao publicar relatório no SQS: caminho={}",
+                request.getRequestURI(),
+                exception
+        );
+
+        ErroResposta erro = new ErroResposta(
+                LocalDateTime.now(),
+                HttpStatus.BAD_GATEWAY.value(),
+                "Falha na mensageria",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_GATEWAY)
+                .body(erro);
+    }
+
+    /**
+     * Responde HTTP 409 quando o recurso existe, mas seu processamento
+     * assíncrono ainda não chegou ao estado necessário para download.
+     */
+    @ExceptionHandler(RelatorioIndisponivelException.class)
+    public ResponseEntity<ErroResposta> tratarRelatorioIndisponivel(
+            RelatorioIndisponivelException exception,
+            HttpServletRequest request
+    ) {
+        ErroResposta erro = new ErroResposta(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                "Relatório indisponível",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(erro);
+    }
+
 
     /**
      * Trata qualquer exceção que não possua um tratamento mais específico.

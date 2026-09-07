@@ -60,3 +60,17 @@ logging:
     org.hibernate.SQL: DEBUG
     # Exibe os valores associados aos parâmetros JDBC.
     org.hibernate.orm.jdbc.bind: TRACE
+
+# O container local não recebe o perfil da AWS armazenado no Windows.
+# Por isso, somente o addon SQS fica desligado no perfil Docker.
+# Kafka, banco, Redis e observabilidade continuam funcionando normalmente.
+application:
+  aws:
+    sqs:
+      enabled: false
+      consumer-enabled: false
+      audit-consumer-enabled: false
+
+    # O container local não possui o perfil temporário salvo no Windows.
+    sns:
+      enabled: false
