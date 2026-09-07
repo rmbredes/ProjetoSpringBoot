@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import br.com.exemplo.projetospringboot.exception.ArmazenamentoAnexoException;
 import br.com.exemplo.projetospringboot.exception.ArquivoAnexoInvalidoException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -233,41 +233,34 @@ public class GlobalExceptionHandler {
 
 
     /**
-     * Trata qualquer exceção que não possua um tratamento mais específico.
+     * Trata caminhos HTTP que não correspondem a nenhum endpoint da aplicação.
      *
-     * O erro técnico completo é registrado no terminal, enquanto
-     * o cliente recebe uma mensagem genérica por segurança.
+     * <p>Esse tratamento também contempla caminhos quase corretos, como
+     * {@code /actuator/metrics/}, quando o endpoint registrado é
+     * {@code /actuator/metrics} sem a barra final.</p>
      *
-     * @param exception exceção original ocorrida na aplicação
-     * @param request requisição que estava sendo processada
-     * @return resposta HTTP 500 sem detalhes internos sensíveis
+     * @param exception exceção gerada quando nenhum recurso foi encontrado
+     * @param request requisição que utilizou o caminho inexistente
+     * @return resposta HTTP 404 padronizada
      */
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErroResposta> tratarErroGeral(
-            Exception exception,
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErroResposta> tratarRotaNaoEncontrada(
+            NoResourceFoundException exception,
             HttpServletRequest request
     ) {
-        /*
-         * Registra a causa completa no terminal da aplicação.
-         */
-        LOGGER.error(
-                "Erro não tratado ao processar {}",
-                request.getRequestURI(),
-                exception
-        );
 
-        // Cria uma resposta genérica sem revelar detalhes internos da exceção.
+        // Monta uma resposta clara sem transformar um erro de endereço em HTTP 500.
         ErroResposta erro = new ErroResposta(
                 LocalDateTime.now(),
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "Internal Server Error",
-                "Erro interno da aplicação",
+                HttpStatus.NOT_FOUND.value(),
+                "Not Found",
+                "Endpoint não encontrado",
                 request.getRequestURI()
         );
 
-        // Envia ao cliente o status de erro interno e o corpo padronizado.
+        // Informa corretamente que o caminho solicitado não existe.
         return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .status(HttpStatus.NOT_FOUND)
                 .body(erro);
     }
 

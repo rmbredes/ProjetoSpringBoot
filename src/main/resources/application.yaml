@@ -64,17 +64,19 @@ spring:
     # seu próprio span para o processamento.
     listener:
       observation-enabled: true
-  # Configura o banco H2 persistido em arquivo para a execução local.
-  datasource:
-    # Local do arquivo que armazenará os dados da aplicação.
-    url: jdbc:h2:file:./data/projetodb
-    # Driver JDBC responsável pela conexão com o H2.
-    driver-class-name: org.h2.Driver
-    # Usuário padrão do banco local.
-    username: sa
-    # Senha vazia usada somente neste ambiente de estudo.
-    password:
 
+  datasource:
+    # Como a aplicação está sendo iniciada pelo IntelliJ no Windows,
+    # acessamos a porta que o container publicou no computador.
+    url: jdbc:postgresql://localhost:5432/projetodb
+
+    # Driver JDBC responsável pela comunicação com o PostgreSQL.
+    driver-class-name: org.postgresql.Driver
+
+    # Credenciais locais definidas no serviço postgres do compose.yaml.
+    # São valores simples usados apenas no ambiente local de estudo.
+    username: postgres
+    password: postgres
 
   # Configura o recebimento de arquivos por requisições multipart.
   servlet:
@@ -99,14 +101,6 @@ spring:
       hibernate:
         # Formata o SQL em várias linhas para facilitar a leitura.
         format_sql: true
-
-  # Disponibiliza a interface web do banco H2 no ambiente local.
-  h2:
-    console:
-      # Habilita o console durante o desenvolvimento.
-      enabled: true
-      # Define o endereço relativo da interface do H2.
-      path: /h2-console
 
 # Configura o servidor HTTP incorporado.
 server:

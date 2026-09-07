@@ -18,16 +18,23 @@ spring:
       # Permite pequena margem para os demais campos e cabeçalhos
       # existentes na requisição multipart.
       max-request-size: 11MB
-  # Utiliza um banco H2 temporário mantido somente em memória.
+
+  # Utiliza um PostgreSQL real e descartável durante os testes.
   datasource:
-    # Cria uma base exclusiva para a suíte de testes.
-    url: jdbc:h2:mem:testdb
-    # Driver JDBC utilizado para acessar o H2.
-    driver-class-name: org.h2.Driver
-    # Usuário padrão da base em memória.
-    username: sa
-    # Mantém a senha vazia apenas no ambiente descartável de teste.
-    password:
+    # O prefixo jdbc:tc solicita que o Testcontainers inicie
+    # automaticamente um container PostgreSQL 17.
+    #
+    # TC_DAEMON mantém o container ativo durante toda a execução
+    # do Maven, evitando reinicializações desnecessárias.
+    url: jdbc:tc:postgresql:17:///projetodb_test?TC_DAEMON=true
+
+    # Driver intermediário que inicia o container e fornece
+    # ao Spring a conexão JDBC do PostgreSQL temporário.
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+
+    # Credenciais descartáveis usadas apenas dentro do container de teste.
+    username: test
+    password: test
 
   # Controla o esquema criado para cada execução da suíte.
   jpa:
@@ -38,11 +45,6 @@ spring:
     # Evita poluir a saída dos testes com comandos SQL.
     show-sql: false
 
-  # Desativa a interface web do H2, que não é necessária nos testes.
-  h2:
-    console:
-      # Impede a criação do endpoint do console.
-      enabled: false
 
 # Usa uma configuração de JWT própria do ambiente de teste.
 jwt:
@@ -116,7 +118,7 @@ app:
     # Os testes comuns chamam diretamente os métodos que desejam validar.
     #
     # Desligar o agendamento impede que jobs em segundo plano tentem
-    # acessar o H2 enquanto o Hibernate está removendo as tabelas.
+    # acessar o PostgreSQL temporário enquanto o Hibernate remove as tabelas.
     enabled: false
 
 
