@@ -1,6 +1,14 @@
 # Isola a configuração usada durante a execução dos testes automatizados.
 spring:
 
+  # Impede que os consumers Kafka sejam iniciados automaticamente
+  # durante a suíte comum de testes.
+  kafka:
+    listener:
+      # Os consumers possuem testes próprios e não precisam
+      # acessar um broker Kafka real nesses testes.
+      auto-startup: false
+
   # Configura o recebimento de arquivos por requisições multipart.
   servlet:
     multipart:
@@ -100,6 +108,18 @@ management:
 #
 # Esses valores permitem que o contexto do Spring seja iniciado sem
 # depender de credenciais ou de recursos reais da AWS.
+
+
+# Controla as tarefas executadas automaticamente em intervalos definidos.
+app:
+  scheduling:
+    # Os testes comuns chamam diretamente os métodos que desejam validar.
+    #
+    # Desligar o agendamento impede que jobs em segundo plano tentem
+    # acessar o H2 enquanto o Hibernate está removendo as tabelas.
+    enabled: false
+
+
 application:
   aws:
     s3:
