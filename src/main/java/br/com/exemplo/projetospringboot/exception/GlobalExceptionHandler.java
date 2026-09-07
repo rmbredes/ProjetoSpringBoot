@@ -15,6 +15,10 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import br.com.exemplo.projetospringboot.exception.ArmazenamentoAnexoException;
+import br.com.exemplo.projetospringboot.exception.ArquivoAnexoInvalidoException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+
 /**
  * Converte exceções da aplicação em respostas HTTP padronizadas e seguras.
  */
@@ -82,7 +86,16 @@ public class GlobalExceptionHandler {
                 LocalDateTime.now(),
                 HttpStatus.NOT_FOUND.value(),
                 "Not Found",
-                "Cliente não encontrado",
+                /*
+                 * Cada serviço informa qual recurso não foi encontrado.
+                 *
+                 * Caso uma exceção antiga não possua mensagem, usamos
+                 * uma descrição genérica.
+                 */
+                exception.getMessage() == null
+                        || exception.getMessage().isBlank()
+                        ? "Recurso não encontrado"
+                        : exception.getMessage(),
                 request.getRequestURI()
         );
 
@@ -91,6 +104,133 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.NOT_FOUND)
                 .body(erro);
     }
+
+    /**
+     * Converte violações das regras de arquivo em HTTP 400.
+     */
+    @ExceptionHandler(ArquivoAnexoInvalidoException.class)
+    public ResponseEntity<ErroResposta> tratarArquivoInvalido(
+            ArquivoAnexoInvalidoException exception,
+            HttpServletRequest request
+    ) {
+        ErroResposta erro = new ErroResposta(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Arquivo inválido",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(erro);
+    }
+
+    /**
+     * Trata arquivos rejeitados pelo próprio limite multipart do Spring.
+     *
+     * <p>HTTP 413 significa Payload Too Large.</p>
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErroResposta> tratarArquivoMuitoGrande(
+            MaxUploadSizeExceededException exception,
+            HttpServletRequest request
+    ) {
+        ErroResposta erro = new ErroResposta(
+                LocalDateTime.now(),
+                HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                "Arquivo muito grande",
+                "O arquivo deve possuir no máximo 10 MB",
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(erro);
+    }
+
+    /**
+     * Converte falhas de comunicação com o armazenamento em HTTP 502.
+     *
+     * <p>O cliente recebe uma mensagem segura. A causa técnica
+     * completa permanece disponível nos logs.</p>
+     */
+    @ExceptionHandler(ArmazenamentoAnexoException.class)
+    public ResponseEntity<ErroResposta> tratarFalhaArmazenamento(
+            ArmazenamentoAnexoException exception,
+            HttpServletRequest request
+    ) {
+        LOGGER.error(
+                "Falha no armazenamento do anexo: caminho={}",
+                request.getRequestURI(),
+                exception
+        );
+
+        ErroResposta erro = new ErroResposta(
+                LocalDateTime.now(),
+                HttpStatus.BAD_GATEWAY.value(),
+                "Falha no armazenamento",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_GATEWAY)
+                .body(erro);
+    }
+
+    /**
+     * Converte uma falha de publicação do relatório em HTTP 502.
+     *
+     * <p>O código 502 informa que nossa API recebeu a requisição,
+     * mas não conseguiu concluir a comunicação com o serviço externo.</p>
+     */
+    @ExceptionHandler(PublicacaoRelatorioException.class)
+    public ResponseEntity<ErroResposta> tratarFalhaPublicacaoRelatorio(
+            PublicacaoRelatorioException exception,
+            HttpServletRequest request
+    ) {
+        LOGGER.error(
+                "Falha ao publicar relatório no SQS: caminho={}",
+                request.getRequestURI(),
+                exception
+        );
+
+        ErroResposta erro = new ErroResposta(
+                LocalDateTime.now(),
+                HttpStatus.BAD_GATEWAY.value(),
+                "Falha na mensageria",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_GATEWAY)
+                .body(erro);
+    }
+
+    /**
+     * Responde HTTP 409 quando o recurso existe, mas seu processamento
+     * assíncrono ainda não chegou ao estado necessário para download.
+     */
+    @ExceptionHandler(RelatorioIndisponivelException.class)
+    public ResponseEntity<ErroResposta> tratarRelatorioIndisponivel(
+            RelatorioIndisponivelException exception,
+            HttpServletRequest request
+    ) {
+        ErroResposta erro = new ErroResposta(
+                LocalDateTime.now(),
+                HttpStatus.CONFLICT.value(),
+                "Relatório indisponível",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(erro);
+    }
+
 
     /**
      * Trata qualquer exceção que não possua um tratamento mais específico.

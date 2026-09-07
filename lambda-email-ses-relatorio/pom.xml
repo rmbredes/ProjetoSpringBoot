@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        Esta Lambda é um projeto Maven independente da aplicação Spring Boot.
+        Ela possui seu próprio ciclo de compilação e será enviada separadamente
+        para a AWS.
+    -->
+    <groupId>br.com.exemplo</groupId>
+    <artifactId>recomeco-email-ses-relatorio-lambda</artifactId>
+    <version>1.0.0</version>
+
+    <properties>
+        <!-- Utiliza a mesma versão Java adotada pela aplicação principal. -->
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Versões centralizadas para facilitar futuras atualizações. -->
+        <aws.lambda.core.version>1.4.0</aws.lambda.core.version>
+        <aws.lambda.events.version>3.16.1</aws.lambda.events.version>
+        <aws.sdk.version>2.54.8</aws.sdk.version>
+        <jackson.version>2.21.4</jackson.version>
+        <junit.version>6.0.3</junit.version>
+        <mockito.version>5.23.0</mockito.version>
+    </properties>
+
+    <dependencies>
+        <!--
+            Fornece RequestHandler, Context e LambdaLogger.
+            São as interfaces que conectam nosso código ao runtime Lambda.
+        -->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-lambda-java-core</artifactId>
+            <version>${aws.lambda.core.version}</version>
+        </dependency>
+
+        <!--
+            Fornece a classe SNSEvent, que representa em Java o envelope
+            enviado pelo Amazon SNS para uma função Lambda.
+        -->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-lambda-java-events</artifactId>
+            <version>${aws.lambda.events.version}</version>
+        </dependency>
+
+        <!--
+            Converte o texto JSON que está dentro da mensagem SNS em um
+            objeto Java com campos conhecidos e tipos definidos.
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!--
+            Cliente oficial da AWS utilizado para buscar o arquivo PDF no S3.
+            A Lambda obtém as credenciais por meio de sua execution role.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+
+        <!--
+            Cliente da API v2 do Amazon SES. Esta versão permite enviar uma
+            mensagem simples com o PDF anexado, sem montar o MIME manualmente.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sesv2</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+
+        <!-- Dependências utilizadas somente pelos testes automatizados. -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Compila o projeto utilizando Java 21. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.15.0</version>
+            </plugin>
+
+            <!-- Executa os testes escritos com JUnit. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.6</version>
+            </plugin>
+
+            <!--
+                Reúne nosso código e todas as bibliotecas necessárias em um
+                único JAR. Esse é o arquivo que enviaremos para o Lambda.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <finalName>recomeco-email-ses-relatorio-lambda</finalName>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
