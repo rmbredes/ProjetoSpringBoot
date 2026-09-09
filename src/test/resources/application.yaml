@@ -142,8 +142,8 @@ application:
     # durante a suíte automatizada.
     enabled: false
 
-    # O LogisticaClient ainda é criado pelo Spring e precisa
-    # receber uma URL válida, embora não realize chamadas.
+    # A URL permanece disponível para testes que carreguem
+    # explicitamente os componentes da integração logística.
     base-url: http://localhost:8084
 
     # Valor necessário para completar a configuração do job,

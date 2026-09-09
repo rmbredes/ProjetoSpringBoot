@@ -12,6 +12,7 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 /**
  * Centraliza a comunicação HTTP com o logistica-service.
@@ -22,6 +23,11 @@ import org.springframework.web.client.RestClient;
  * - Circuit Breaker: protege o monólito quando a logística está indisponível.
  */
 @Component
+@ConditionalOnProperty(
+        prefix = "application.logistica",
+        name = "enabled",
+        havingValue = "true"
+)
 public class LogisticaClient {
 
     private static final Logger LOGGER =

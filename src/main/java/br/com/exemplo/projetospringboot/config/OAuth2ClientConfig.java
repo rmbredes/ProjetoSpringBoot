@@ -8,12 +8,18 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientProvider
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientProviderBuilder;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 /**
  * Configura o componente responsável por obter e reutilizar
  * tokens OAuth2 utilizados nas chamadas entre aplicações.
  */
 @Configuration
+@ConditionalOnProperty(
+        prefix = "application.logistica",
+        name = "enabled",
+        havingValue = "true"
+)
 public class OAuth2ClientConfig {
 
     /**
