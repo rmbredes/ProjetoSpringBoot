@@ -42,3 +42,9 @@ logs/*.log*
 tmp/
 output/
 build_observability_tutorial.py
+
+### Logs de execução
+
+# Os logs continuam no computador, mas não entram no Git.
+logs/
+*.log

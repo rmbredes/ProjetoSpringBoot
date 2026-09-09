@@ -1,5 +1,6 @@
 # Agrupa as configurações reconhecidas pelo ecossistema Spring.
 spring:
+
   # Identifica a aplicação em logs, métricas e integrações.
   application:
     # Nome lógico do serviço.
@@ -8,12 +9,13 @@ spring:
   # Configura a comunicação da aplicação com o Kafka local.
   kafka:
     # Endereço do broker acessível pela aplicação executada fora do Docker.
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
     # Define como o produtor transforma chaves e valores em bytes.
     producer:
       # Serializa a chave textual de cada mensagem.
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
+
       # Serializa o evento Java no formato JSON.
       value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
 
@@ -21,34 +23,38 @@ spring:
     consumer:
       # Converte os bytes da chave novamente em texto.
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
       # Converte o JSON recebido em um objeto Java.
       value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
-      # Começa pelo primeiro registro disponível quando o grupo ainda não possui offset.
+
+      # Começa pelo primeiro registro disponível quando o grupo
+      # ainda não possui um offset registrado.
       auto-offset-reset: earliest
 
       # Reúne propriedades adicionais do desserializador JSON.
       properties:
-        # Restringe a desserialização aos eventos do pacote conhecido pela aplicação.
+        # Restringe a desserialização aos eventos conhecidos pela aplicação.
         spring.json.trusted.packages: br.com.exemplo.projetospringboot.event
 
-    # Configura o cliente administrativo usado no health check e na criação de tópicos.
+        # O pagamento-service não envia o nome da classe Java no header.
+        # Quando essa informação não existir, este será o tipo utilizado.
+        spring.json.value.default.type: br.com.exemplo.projetospringboot.event.PagamentoProcessadoEvent
+
+    # Configura o cliente administrativo utilizado pelo health check
+    # e pela criação dos tópicos.
     admin:
-      # Limita o tempo que o KafkaAdmin espera pela conclusão
-      # de uma operação administrativa.
+      # Limita o tempo de espera por uma operação administrativa.
       operation-timeout: 3s
 
-      # Limita o encerramento do cliente administrativo
-      # depois da consulta ao Kafka.
+      # Limita o tempo de encerramento do cliente administrativo.
       close-timeout: 1s
 
-      # Reúne limites de tempo enviados diretamente ao cliente Kafka.
+      # Configurações enviadas diretamente ao cliente Kafka.
       properties:
-        # Limita o tempo total disponível para uma chamada
-        # administrativa realizada pelo cliente Kafka.
+        # Tempo máximo disponível para uma chamada administrativa.
         "[default.api.timeout.ms]": 3000
 
-        # Limita o tempo de espera por uma resposta individual
-        # enviada ao broker Kafka.
+        # Tempo máximo para receber a resposta individual do broker.
         "[request.timeout.ms]": 3000
 
     # Habilita observações nos envios realizados pelo KafkaTemplate.
@@ -65,18 +71,32 @@ spring:
     listener:
       observation-enabled: true
 
+  # Configura a conexão com o banco PostgreSQL do monólito.
   datasource:
     # Como a aplicação está sendo iniciada pelo IntelliJ no Windows,
-    # acessamos a porta que o container publicou no computador.
-    url: jdbc:postgresql://localhost:5432/projetodb
+    # acessamos a porta publicada pelo container no computador.
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/projetodb}
 
     # Driver JDBC responsável pela comunicação com o PostgreSQL.
     driver-class-name: org.postgresql.Driver
 
-    # Credenciais locais definidas no serviço postgres do compose.yaml.
-    # São valores simples usados apenas no ambiente local de estudo.
-    username: postgres
-    password: postgres
+    # Credenciais locais definidas no serviço PostgreSQL do Compose.
+    #
+    # São valores simples utilizados apenas no ambiente local de estudo.
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+
+  # Configura recursos fornecidos pelo Spring Cloud.
+  cloud:
+    # Configura a integração entre Spring Cloud Circuit Breaker
+    # e sua implementação Resilience4j.
+    circuitbreaker:
+      resilience4j:
+        # Nesta primeira experiência não utilizaremos o TimeLimiter.
+        #
+        # O tempo máximo da comunicação HTTP será estudado
+        # separadamente quando configurarmos os timeouts.
+        disable-time-limiter: true
 
   # Configura o recebimento de arquivos por requisições multipart.
   servlet:
@@ -84,51 +104,96 @@ spring:
       # Impede que um único arquivo ultrapasse 10 MB.
       max-file-size: 10MB
 
-      # Permite pequena margem para os demais campos e cabeçalhos
+      # Permite uma pequena margem para os campos e cabeçalhos
       # existentes na requisição multipart.
       max-request-size: 11MB
 
   # Configura o JPA e sua implementação Hibernate.
   jpa:
-    # Controla a criação e a atualização das tabelas pelas entidades.
+    # Controla a criação e atualização das tabelas pelas entidades.
     hibernate:
       # Atualiza o esquema sem apagar os dados existentes.
       ddl-auto: update
-    # Exibe no terminal os comandos SQL executados.
+
+    # Controla a impressão do SQL executado no terminal.
     show-sql: false
+
     # Reúne opções específicas do Hibernate.
     properties:
       hibernate:
-        # Formata o SQL em várias linhas para facilitar a leitura.
+        # Formata os comandos SQL em várias linhas.
         format_sql: true
+
+
+# Configura os circuitos administrados pelo Resilience4j.
+#
+# ATENÇÃO:
+# Este bloco não pertence a "spring".
+# Por isso, "resilience4j" não possui espaços à esquerda.
+resilience4j:
+  circuitbreaker:
+    instances:
+      # Nome utilizado no LogisticaClient:
+      #
+      # circuitBreakerFactory.create("logisticaService")
+      logisticaService:
+
+        # Registra informações do circuito no Actuator.
+        register-health-indicator: true
+
+        # Analisa uma quantidade de chamadas, e não um período.
+        sliding-window-type: COUNT_BASED
+
+        # Mantém o resultado das quatro chamadas mais recentes.
+        sliding-window-size: 4
+
+        # Começa a calcular a taxa de falhas depois de duas chamadas.
+        #
+        # O valor baixo facilita a demonstração no laboratório.
+        minimum-number-of-calls: 2
+
+        # Abre o circuito quando pelo menos 50% das chamadas falham.
+        failure-rate-threshold: 50
+
+        # Mantém o circuito aberto durante dez segundos.
+        wait-duration-in-open-state: 10s
+
+        # Quando estiver HALF_OPEN, permite uma chamada para verificar
+        # se o logistica-service voltou a funcionar.
+        permitted-number-of-calls-in-half-open-state: 1
+
 
 # Configura o servidor HTTP incorporado.
 server:
-  # Porta em que a aplicação recebe as requisições.
-  port: 8080
+  # Porta em que o monólito recebe requisições HTTP.
+  port: ${SERVER_PORT:8080}
+
   # Configura o contexto da aplicação web.
   servlet:
     # Prefixo comum de todos os endpoints HTTP.
     context-path: /ProjetoSpringBoot
 
+
 # Configura os tokens de autenticação da aplicação.
 jwt:
-  # Chave local usada para assinar e validar os tokens.
+  # Chave local utilizada para assinar e validar os tokens.
   secret: "esta-chave-deve-ser-grande-e-secreta-com-pelo-menos-32-bytes"
+
   # Mantém o token válido por um dia, em segundos.
   expiration: 86400
 
+
 # Configura os endpoints operacionais fornecidos pelo Actuator.
 management:
+
   # Reúne as configurações gerais dos endpoints.
   endpoints:
-    # Configura a exposição desses endpoints pela web.
+    # Configura a exposição dos endpoints pela web.
     web:
-      # Define quais endpoints podem ser acessados por HTTP.
       exposure:
         # Expõe somente os endpoints necessários nesta etapa.
         #
-        # Não utilizamos "*" porque outros endpoints podem revelar
+        # Não usamos "*" porque outros endpoints podem revelar
         # configurações internas ou informações sensíveis.
         include: health,metrics,prometheus
 
@@ -136,19 +201,18 @@ management:
   endpoint:
     # Personaliza a resposta do endpoint de saúde.
     health:
-      # Configurações de health já existentes.
       show-components: when-authorized
       show-details: when-authorized
 
-  # Configura a criação e a exportação dos traces.
+  # Configura a criação e exportação dos traces.
   tracing:
     # Define a porcentagem das operações que receberão tracing.
     sampling:
       # Durante o estudo, registra 100% das operações.
       #
-      # Em produção normalmente utilizaremos uma porcentagem menor
-      # para controlar o volume de dados.
+      # Em produção normalmente usaríamos uma porcentagem menor.
       probability: 1.0
+
     export:
       otlp:
         # Envia os spans criados pela aplicação para o Jaeger.
@@ -159,18 +223,21 @@ management:
     tracing:
       export:
         otlp:
-          # A aplicação iniciada pela IDE acessa a porta publicada pelo Compose.
+          # A aplicação iniciada pela IDE acessa
+          # a porta publicada pelo Compose.
           endpoint: http://localhost:4318/v1/traces
 
-  # Desliga o envio de métricas via OTLP
-  # enquanto não houver um Collector disponível.
+  # Desliga o envio de métricas por OTLP enquanto
+  # não houver um Collector disponível.
   otlp:
     metrics:
       export:
         enabled: false
 
+
 # Personaliza o formato dos logs produzidos pela aplicação.
 logging:
+
   # Mantém os logs no console e também em arquivo.
   #
   # O Grafana Alloy acompanhará este arquivo e enviará
@@ -192,40 +259,72 @@ logging:
 
   # Define padrões adicionados às mensagens de log.
   pattern:
-    # Inclui no log os identificadores técnicos do trace
+    # Inclui identificadores técnicos do trace
     # e o identificador de negócio transportado pelo evento.
     correlation: "[traceId=%X{traceId:-sem-trace} spanId=%X{spanId:-sem-span} eventoId=%X{eventoId:-sem-evento}] "
-# Configura as integrações da aplicação com serviços da AWS.
+
+
+# Configura propriedades específicas da nossa aplicação.
+#
+# Este "application" não é o mesmo que "spring.application".
 application:
+
+  # Configura contratos Kafka específicos da aplicação.
+  kafka:
+    pagamentos-processados:
+      # Pode ser substituído por variável de ambiente no Docker ou AWS.
+      topic: ${PAGAMENTOS_PROCESSADOS_TOPIC:pagamentos-processados}
+
+      # Grupo exclusivo do monólito para este tópico.
+      group-id: ${PAGAMENTOS_PROCESSADOS_GROUP_ID:projeto-springboot-pagamentos-group}
+
+  # Configura a integração REST com o logistica-service.
+  logistica:
+
+    # Permite desligar somente esta integração.
+    enabled: ${LOGISTICA_ENABLED:true}
+
+    # Quando executamos pelo IntelliJ, usamos localhost.
+    #
+    # No Docker, futuramente será:
+    # http://logistica-service:8084
+    base-url: ${LOGISTICA_BASE_URL:http://localhost:8084}
+
+    # Aguarda cinco segundos depois do término de uma execução
+    # antes de iniciar a próxima consulta.
+    polling-delay-ms: ${LOGISTICA_POLLING_DELAY_MS:5000}
+
+  # Configura as integrações com serviços da AWS.
   aws:
+
     # Configura o armazenamento de anexos no Amazon S3.
     s3:
       # Bucket privado criado para armazenar os anexos dos pedidos.
       #
-      # O nome do bucket não é uma senha, mas fica centralizado aqui
+      # O nome não é uma senha, mas fica centralizado aqui
       # para não ser repetido nas classes Java.
       bucket-name: recomeco-pedidos-anexos-df33a1eb
 
-      # Região em que o bucket foi criado.
+      # Região onde o bucket foi criado.
       #
-      # O cliente S3 precisa saber a região correta para encaminhar
-      # cada requisição ao endpoint apropriado da AWS.
+      # O cliente S3 precisa conhecer a região correta
+      # para utilizar o endpoint apropriado.
       region: sa-east-1
 
-      # Perfil configurado no arquivo local da AWS CLI.
+      # Perfil configurado nos arquivos locais da AWS CLI.
       #
       # Esse perfil assume a role ProjetoSpringBootS3DevRole,
-      # que possui acesso limitado aos objetos dentro de pedidos/*.
+      # que possui acesso limitado aos objetos de pedidos.
       #
       # Quando a aplicação for implantada na AWS, não utilizaremos
-      # um perfil local. O ECS fornecerá as credenciais por uma role.
+      # um perfil local. O ECS fornecerá credenciais por uma role.
       credentials-profile: projeto-s3
 
     # Configura o addon responsável pela geração assíncrona
     # de relatórios de pedidos com o Amazon SQS.
     sqs:
       # Permite desligar somente a integração SQS sem afetar
-      # Kafka, anexos, S3 ou os demais endpoints da aplicação.
+      # Kafka, anexos, S3 ou os outros endpoints.
       enabled: true
 
       # Região onde as filas do laboratório foram criadas.
@@ -233,23 +332,25 @@ application:
 
       # Endereço completo da fila principal.
       #
-      # A aplicação não precisa conhecer a URL da DLQ porque
-      # o redirecionamento das falhas é administrado pelo SQS.
+      # A aplicação não precisa conhecer a URL da DLQ,
+      # pois o redirecionamento é administrado pelo próprio SQS.
       queue-url: https://sqs.sa-east-1.amazonaws.com/033649548808/recomeco-relatorios-pedidos-dev
 
-      # Reutiliza o mesmo perfil temporário já empregado pelo S3.
-      # Nenhuma access key ou secret key será armazenada no projeto.
+      # Reutiliza o mesmo perfil temporário utilizado pelo S3.
+      #
+      # Nenhuma access key ou secret key fica armazenada no projeto.
       credentials-profile: projeto-s3
 
       # Tempo máximo que uma chamada de recebimento aguardará
-      # por uma nova mensagem antes de retornar vazia.
+      # por uma mensagem antes de retornar vazia.
       wait-time-seconds: 20
 
       # Liga o job que consulta e processa mensagens da fila.
+      #
       # Pode ser desligado sem impedir que o producer envie mensagens.
       consumer-enabled: true
 
-      # Depois que uma consulta terminar, aguarda cinco segundos
+      # Depois que uma consulta termina, aguarda cinco segundos
       # antes de iniciar a próxima.
       polling-delay-ms: 5000
 
@@ -262,17 +363,19 @@ application:
       # Intervalo entre as consultas da fila de auditoria.
       audit-polling-delay-ms: 5000
 
-    # Configura o addon que publica eventos no Amazon SNS.
+    # Configura o addon responsável pela publicação no Amazon SNS.
     sns:
-      # Permite desligar as notificações sem afetar a geração do PDF,
-      # o banco, o S3, o SQS ou os demais recursos da aplicação.
+      # Permite desligar as notificações sem afetar a geração
+      # do PDF, o banco, o S3, o SQS ou outros recursos.
       enabled: true
 
       # Região onde o tópico foi criado.
       region: sa-east-1
 
-      # ARN do tópico que distribui os eventos de relatório disponível.
+      # ARN do tópico que distribui os eventos
+      # de relatório disponível.
       topic-arn: arn:aws:sns:sa-east-1:033649548808:recomeco-eventos-relatorios-dev
 
-      # Reutiliza o perfil temporário já empregado pelo S3 e pelo SQS.
+      # Reutiliza o mesmo perfil temporário
+      # empregado pelo S3 e pelo SQS.
       credentials-profile: projeto-s3

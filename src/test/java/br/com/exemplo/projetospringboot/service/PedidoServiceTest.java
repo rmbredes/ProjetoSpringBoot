@@ -93,7 +93,11 @@ class PedidoServiceTest {
                         null,
                         new BigDecimal("150.00"),
                         null,
-                        1L
+                        1L,
+                null,
+                null,
+                null,
+                        null
                 );
 
         // Simula a localização do cliente informado no pedido.

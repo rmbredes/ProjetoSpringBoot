@@ -2,6 +2,8 @@ package br.com.exemplo.projetospringboot.repository;
 
 
 import br.com.exemplo.projetospringboot.entity.Pedido;
+import br.com.exemplo.projetospringboot.entity.StatusLogisticaPedido;
+import br.com.exemplo.projetospringboot.entity.StatusPagamentoPedido;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -20,5 +22,17 @@ public interface PedidoRepository
      */
     List<Pedido> findByClienteId(
             Long clienteId
+    );
+
+    /**
+     * Localiza pagamentos aprovados cuja logística ainda está pendente.
+     *
+     * Exigimos eventoPagamentoId preenchido para ignorar registros
+     * históricos criados antes desse novo campo.
+     */
+    List<Pedido>
+    findByStatusPagamentoAndStatusLogisticaAndPagamentoEventoIdIsNotNullOrderByDataCriacaoAsc(
+            StatusPagamentoPedido statusPagamento,
+            StatusLogisticaPedido statusLogistica
     );
 }

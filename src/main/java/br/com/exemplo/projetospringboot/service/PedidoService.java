@@ -238,7 +238,11 @@ public class PedidoService {
                 pedido.getId(),
                 pedido.getValor(),
                 pedido.getDataCriacao(),
-                pedido.getCliente().getId()
+                pedido.getCliente().getId(),
+                pedido.getPagamentoEventoId(),
+                pedido.getPagamentoId(),
+                pedido.getStatusPagamento(),
+                pedido.getStatusLogistica()
         );
     }
 }
