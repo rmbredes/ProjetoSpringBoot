@@ -20,11 +20,11 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Testa as consultas do AnexoPedidoRepository utilizando o H2.
+ * Testa as consultas do AnexoPedidoRepository utilizando PostgreSQL.
  *
- * <p>Este é um teste de integração de persistência. O Spring inicia
- * o contexto, cria as tabelas no H2 em memória e utiliza o repositório
- * real do Spring Data JPA.</p>
+ * <p>Este é um teste de integração de persistência. O Testcontainers
+ * inicia um PostgreSQL descartável, o Spring cria as tabelas e utiliza
+ * o repositório real do Spring Data JPA.</p>
  *
  * <p>A anotação Transactional desfaz as alterações ao final de cada
  * teste, mantendo um teste isolado dos demais.</p>

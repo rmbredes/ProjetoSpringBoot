@@ -101,7 +101,8 @@ class ActuatorHealthTest {
 
                 /*
                  * O componente do banco deve estar disponível
-                 * porque o teste utiliza um banco H2 em memória.
+                 * porque o teste utiliza um PostgreSQL temporário
+                 * iniciado automaticamente pelo Testcontainers.
                  */
                 .andExpect(
                         jsonPath("$.components.db.status")
@@ -114,7 +115,7 @@ class ActuatorHealthTest {
                  */
                 .andExpect(
                         jsonPath("$.components.db.details.database")
-                                .value("H2")
+                                .value("PostgreSQL")
                 );
     }
 

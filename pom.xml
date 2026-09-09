@@ -47,6 +47,14 @@
             e facilita uma atualização futura.
         -->
         <aws.sdk.version>2.54.8</aws.sdk.version>
+
+        <!--
+            Versão do conjunto Spring Cloud compatível com o Spring Boot 4.1.
+
+            Utilizamos uma propriedade para manter a versão centralizada,
+            assim como já fazemos com o AWS SDK.
+        -->
+        <spring-cloud.version>2025.1.3</spring-cloud.version>
     </properties>
 
     <!--
@@ -75,6 +83,15 @@
                 <!-- Importa as versões definidas pelo BOM para este projeto. -->
                 <scope>import</scope>
             </dependency>
+
+            <!-- BOM do Spring Cloud. -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
     <!-- Lista as bibliotecas disponíveis para compilação, execução e testes. -->
@@ -91,6 +108,19 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!--
+            Executa um PostgreSQL real e descartável durante os testes
+            que iniciam o contexto Spring e precisam de persistência.
+
+            A versão é administrada pelo parent do Spring Boot,
+            portanto não declaramos um número manualmente.
+        -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Cria APIs HTTP com Spring MVC e servidor incorporado. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -100,12 +130,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-        <!-- Disponibiliza o banco H2 somente durante a execução da aplicação. -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
         </dependency>
         <!-- Integra JPA, Hibernate e repositórios Spring Data. -->
         <dependency>
@@ -162,12 +186,17 @@
             <artifactId>spring-boot-starter-kafka</artifactId>
         </dependency>
 
-        <!-- Disponibiliza separadamente o console web do H2 no Spring Boot 4. -->
+        <!--
+            Implementação não reativa do Spring Cloud Circuit Breaker.
+
+            O projeto utiliza RestClient, que realiza chamadas síncronas,
+            portanto não precisamos do starter Reactor.
+        -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-h2console</artifactId>
-            <scope>runtime</scope>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
         </dependency>
+
         <!--
             Adiciona os recursos operacionais do Spring Boot Actuator.
 

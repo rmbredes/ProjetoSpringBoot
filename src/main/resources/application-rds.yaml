@@ -1,8 +1,8 @@
 # Este arquivo complementa application.yaml quando o perfil "rds" está ativo.
 #
-# O arquivo principal continua configurando o H2 para o desenvolvimento local.
-# Assim, executar a aplicação normalmente não depende da AWS. Para utilizar o
-# PostgreSQL do Amazon RDS, ativamos este perfil de forma explícita.
+# O arquivo principal configura o PostgreSQL executado localmente pelo Docker.
+# Ao ativar este perfil, endpoint e credenciais locais são substituídos
+# pelas configurações do PostgreSQL administrado pelo Amazon RDS.
 spring:
   datasource:
     # O endpoint, a porta e o nome do banco são fornecidos externamente.
@@ -49,7 +49,3 @@ spring:
       # Futuramente substituiremos isso por migrações versionadas com Flyway.
       ddl-auto: update
 
-  h2:
-    console:
-      # O console H2 não tem utilidade quando a fonte de dados ativa é o RDS.
-      enabled: false
