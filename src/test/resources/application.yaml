@@ -122,7 +122,35 @@ app:
     enabled: false
 
 
+# Fornece valores seguros e isolados para as integrações
+# utilizadas durante os testes automatizados.
 application:
+
+  # Configura o contrato Kafka criado para receber
+  # os resultados processados pelo pagamento-service.
+  kafka:
+    pagamentos-processados:
+      # Nome fictício. Os listeners permanecem desligados nos testes.
+      topic: pagamentos-processados-test
+
+      # Grupo fictício utilizado somente para criar o listener.
+      group-id: projeto-springboot-pagamentos-test-group
+
+  # Configura a integração REST com o logistica-service.
+  logistica:
+    # Impede que o job tente acessar uma aplicação externa
+    # durante a suíte automatizada.
+    enabled: false
+
+    # O LogisticaClient ainda é criado pelo Spring e precisa
+    # receber uma URL válida, embora não realize chamadas.
+    base-url: http://localhost:8084
+
+    # Valor necessário para completar a configuração do job,
+    # que permanecerá desabilitado neste ambiente.
+    polling-delay-ms: 5000
+
+  # Configura valores fictícios para os serviços AWS.
   aws:
     s3:
       # Nome fictício usado pelos testes que não acessam a AWS.
@@ -131,19 +159,15 @@ application:
       # A região precisa ser válida porque AwsS3Config cria um objeto Region.
       region: sa-east-1
 
-      # Mantém o perfil vazio nos testes comuns.
-      #
-      # Com isso, a suíte não depende do perfil projeto-s3 existente
-      # somente no seu computador.
+      # Mantém o perfil vazio para não depender do computador local.
       credentials-profile: ""
 
-    # Mantém os testes comuns independentes da fila real da AWS.
-    # O teste de integração específico habilita o SQS explicitamente.
+    # Mantém os testes independentes das filas reais.
     sqs:
       enabled: false
       consumer-enabled: false
       audit-consumer-enabled: false
 
-    # Os testes comuns não publicam notificações nem acessam o tópico real.
+    # Impede publicações reais no SNS.
     sns:
       enabled: false
