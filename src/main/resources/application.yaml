@@ -124,7 +124,37 @@ spring:
         # Formata os comandos SQL em várias linhas.
         format_sql: true
 
+  # Configura o monólito como cliente OAuth2.
+  security:
+    oauth2:
+      client:
 
+        # Define a nossa aplicação cliente.
+        registration:
+          logistica-keycloak:
+
+            # Indica qual provedor fornecerá os tokens.
+            provider: keycloak
+
+            # Identificação cadastrada no Keycloak.
+            client-id: projeto-springboot-logistica
+
+            # Segredo usado somente pelo monólito para solicitar tokens.
+            #
+            # Em nosso ambiente de estudo existe um valor padrão.
+            # Futuramente poderá ser fornecido por variável de ambiente.
+            client-secret: ${KEYCLOAK_LOGISTICA_CLIENT_SECRET:segredo-local-projeto-springboot-logistica}
+
+            # Fluxo entre aplicações, sem usuário humano.
+            authorization-grant-type: client_credentials
+
+            # Envia client_id e client_secret no corpo da solicitação.
+            client-authentication-method: client_secret_post
+
+        # Define onde o token será solicitado.
+        provider:
+          keycloak:
+            token-uri: ${KEYCLOAK_TOKEN_URI:http://localhost:8085/realms/recomeco/protocol/openid-connect/token}
 # Configura os circuitos administrados pelo Resilience4j.
 #
 # ATENÇÃO:

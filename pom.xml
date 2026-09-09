@@ -309,7 +309,16 @@
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>signin</artifactId>
         </dependency>
+        <!--
+            Permite que o monólito atue como cliente OAuth2.
 
+            Ele solicitará tokens ao Keycloak usando client_credentials
+            e os enviará nas chamadas REST ao logistica-service.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+        </dependency>
     </dependencies>
 
     <!-- Configura como o artefato final será construído. -->
