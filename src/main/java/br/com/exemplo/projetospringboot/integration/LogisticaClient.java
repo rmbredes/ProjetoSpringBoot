@@ -7,37 +7,58 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.circuitbreaker.CircuitBreaker;
 import org.springframework.cloud.client.circuitbreaker.CircuitBreakerFactory;
+import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 /**
  * Centraliza a comunicação HTTP com o logistica-service.
  *
- * A chamada REST é protegida por um Circuit Breaker.
- * Quando a logística apresenta falhas repetidas, o circuito
- * é aberto e novas tentativas são bloqueadas temporariamente.
+ * A classe agora possui duas proteções:
+ *
+ * - OAuth2/JWT: autentica o monólito no logistica-service;
+ * - Circuit Breaker: protege o monólito quando a logística está indisponível.
  */
 @Component
+@ConditionalOnProperty(
+        prefix = "application.logistica",
+        name = "enabled",
+        havingValue = "true"
+)
 public class LogisticaClient {
 
     private static final Logger LOGGER =
             LoggerFactory.getLogger(LogisticaClient.class);
 
+    /*
+     * Nome da configuração declarada em:
+     *
+     * spring.security.oauth2.client.registration.logistica-keycloak
+     */
+    private static final String CLIENT_REGISTRATION_ID =
+            "logistica-keycloak";
+
+    /*
+     * Identificação interna utilizada para armazenar
+     * e reutilizar o cliente autorizado.
+     *
+     * Não representa um usuário humano.
+     */
+    private static final String CLIENT_PRINCIPAL =
+            "projeto-springboot";
+
     private final RestClient restClient;
     private final CircuitBreaker circuitBreaker;
+    private final OAuth2AuthorizedClientManager authorizedClientManager;
 
-    /**
-     * O Spring injeta automaticamente o CircuitBreakerFactory
-     * criado pelo starter do Spring Cloud.
-     *
-     * A fábrica cria o circuito chamado "logisticaService".
-     * Esse nome deve ser exatamente igual ao utilizado
-     * posteriormente no application.yaml.
-     */
     public LogisticaClient(
             @Value("${application.logistica.base-url}")
             String baseUrl,
-            CircuitBreakerFactory<?, ?> circuitBreakerFactory
+            CircuitBreakerFactory<?, ?> circuitBreakerFactory,
+            OAuth2AuthorizedClientManager authorizedClientManager
     ) {
         this.restClient = RestClient
                 .builder()
@@ -48,19 +69,13 @@ public class LogisticaClient {
                 circuitBreakerFactory.create(
                         "logisticaService"
                 );
+
+        this.authorizedClientManager =
+                authorizedClientManager;
     }
 
     /**
      * Executa a autorização protegida pelo Circuit Breaker.
-     *
-     * O primeiro argumento do run() contém a operação real.
-     * O segundo argumento é executado quando:
-     *
-     * - a chamada HTTP falha; ou
-     * - o circuito já está aberto.
-     *
-     * Não devolvemos uma entrega fictícia como fallback.
-     * Lançamos uma exceção para manter o pedido PENDENTE.
      */
     public EntregaResponse autorizar(
             AutorizarEntregaRequest request
@@ -86,10 +101,39 @@ public class LogisticaClient {
     }
 
     /**
-     * Contém somente a chamada HTTP propriamente dita.
+     * Solicita ou recupera um token OAuth2 válido.
      *
-     * Esse método fica separado para deixar evidente
-     * qual operação está protegida pelo Circuit Breaker.
+     * O gerenciador não solicita necessariamente um novo token
+     * em todas as chamadas. Enquanto o token atual estiver válido,
+     * ele poderá ser reutilizado.
+     */
+    private String obterAccessToken() {
+        OAuth2AuthorizeRequest authorizeRequest =
+                OAuth2AuthorizeRequest
+                        .withClientRegistrationId(
+                                CLIENT_REGISTRATION_ID
+                        )
+                        .principal(CLIENT_PRINCIPAL)
+                        .build();
+
+        OAuth2AuthorizedClient authorizedClient =
+                authorizedClientManager.authorize(
+                        authorizeRequest
+                );
+
+        if (authorizedClient == null) {
+            throw new IllegalStateException(
+                    "O Keycloak não autorizou o cliente da logística"
+            );
+        }
+
+        return authorizedClient
+                .getAccessToken()
+                .getTokenValue();
+    }
+
+    /**
+     * Realiza a chamada HTTP ao logistica-service.
      */
     private EntregaResponse executarChamadaHttp(
             AutorizarEntregaRequest request
@@ -101,9 +145,24 @@ public class LogisticaClient {
                 request.pedidoId()
         );
 
+        /*
+         * Obtém um token válido antes da chamada.
+         */
+        String accessToken = obterAccessToken();
+
         EntregaResponse response = restClient
                 .post()
                 .uri("/entregas")
+
+                /*
+                 * Produz o cabeçalho:
+                 *
+                 * Authorization: Bearer eyJ...
+                 */
+                .headers(headers ->
+                        headers.setBearerAuth(accessToken)
+                )
+
                 .body(request)
                 .retrieve()
                 .body(EntregaResponse.class);

@@ -56,6 +56,52 @@ services:
     # Publica a porta para testes e acesso externo.
     ports:
       - "6379:6379"
+  # Executa o servidor local de identidade e autorização.
+  keycloak:
+    # Usa a mesma versão empregada no estudo anterior.
+    #
+    # Fixar a versão impede que o ambiente mude inesperadamente
+    # quando uma nova imagem for publicada.
+    image: quay.io/keycloak/keycloak:26.7.0
+
+    # Define um nome previsível para localizar o container.
+    container_name: projeto-keycloak
+
+    # Inicia o Keycloak no modo de desenvolvimento.
+    #
+    # --import-realm procura arquivos JSON no diretório
+    # /opt/keycloak/data/import durante a inicialização.
+    command: start-dev --import-realm
+
+    # Cria o administrador inicial do console.
+    #
+    # São credenciais simples utilizadas exclusivamente
+    # no computador local e neste projeto de estudo.
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+
+    # A porta interna do Keycloak continua sendo 8080.
+    #
+    # No Windows utilizaremos 8085 porque:
+    # - 8080 pertence ao monólito;
+    # - 8081 pertence ao pagamento-service;
+    # - 8082 pertence ao Jenkins;
+    # - 8083 pertence ao Kafka UI;
+    # - 8084 pertence ao logistica-service.
+    ports:
+      - "8085:8080"
+
+    # Disponibiliza o arquivo do realm dentro do container.
+    #
+    # ":ro" significa read-only: o Keycloak pode ler o arquivo,
+    # mas não pode modificá-lo.
+    volumes:
+      - ./infra/keycloak/recomeco-realm.json:/opt/keycloak/data/import/recomeco-realm.json:ro
+
+    # Reinicia o serviço caso o container seja interrompido
+    # inesperadamente ou o Docker Desktop seja reiniciado.
+    restart: unless-stopped
 
   # Executa um nó Kafka local em modo KRaft, sem ZooKeeper.
   kafka:
@@ -293,3 +339,6 @@ volumes:
 
   # Preserva as posições de leitura mantidas pelo Alloy.
   alloy-data:
+
+  # Preserva as configurações e os dados locais do Keycloak.
+  #keycloak-data:
