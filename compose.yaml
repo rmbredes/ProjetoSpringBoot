@@ -16,6 +16,10 @@ services:
     environment:
       # Ativa as configurações específicas do ambiente Docker.
       SPRING_PROFILES_ACTIVE: docker
+      # Endereço interno utilizado para solicitar o token.
+      KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/recomeco/protocol/openid-connect/token
+      # Endereço interno do container da logística.
+      LOGISTICA_BASE_URL: http://logistica-service:8084
     # Compartilha o arquivo de log com o computador e com o Alloy.
     volumes:
       - ./logs:/app/logs
@@ -340,5 +344,8 @@ volumes:
   # Preserva as posições de leitura mantidas pelo Alloy.
   alloy-data:
 
-  # Preserva as configurações e os dados locais do Keycloak.
-  #keycloak-data:
+# Define um nome estável para a rede compartilhada
+# pelos componentes do nosso laboratório.
+networks:
+  default:
+    name: recomeco-network
