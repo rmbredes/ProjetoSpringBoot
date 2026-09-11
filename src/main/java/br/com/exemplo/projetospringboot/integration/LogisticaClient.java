@@ -150,6 +150,8 @@ public class LogisticaClient {
          */
         String accessToken = obterAccessToken();
 
+        LOGGER.info(accessToken);
+
         EntregaResponse response = restClient
                 .post()
                 .uri("/entregas")
