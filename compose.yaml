@@ -20,9 +20,36 @@ services:
       KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/recomeco/protocol/openid-connect/token
       # Endereço interno do container da logística.
       LOGISTICA_BASE_URL: http://logistica-service:8084
+
+      # Liga o cliente e o producer do Amazon SQS.
+      APPLICATION_AWS_SQS_ENABLED: "true"
+
+      # Liga o consumer que gera o PDF e o envia ao S3.
+      APPLICATION_AWS_SQS_CONSUMER_ENABLED: "true"
+
+      # Liga o consumer da fila de auditoria.
+      APPLICATION_AWS_SQS_AUDIT_CONSUMER_ENABLED: "true"
+
+      # Liga a publicação do evento no Amazon SNS.
+      APPLICATION_AWS_SNS_ENABLED: "true"
+
+      # Faz as configurações Java escolherem
+      # DefaultCredentialsProvider em vez do perfil interno.
+      APPLICATION_AWS_S3_CREDENTIALS_PROFILE: ""
+      APPLICATION_AWS_SQS_CREDENTIALS_PROFILE: ""
+      APPLICATION_AWS_SNS_CREDENTIALS_PROFILE: ""
+
+      # Credenciais temporárias recebidas do PowerShell.
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
     # Compartilha o arquivo de log com o computador e com o Alloy.
+
+    # Compartilha a configuração AWS do Windows com o container.
+    # read_only impede que o container altere esses arquivos.
     volumes:
       - ./logs:/app/logs
+
     # Inicia as dependências antes de iniciar a aplicação.
     depends_on:
       - postgres
@@ -324,28 +351,33 @@ services:
 
     restart: unless-stopped
 
-# Declara os volumes persistentes utilizados pelos serviços.
 volumes:
-  # Preserva os dados do PostgreSQL.
+
   postgres-data:
+    name: recomeco-stack-local_postgres-data
 
-  # Preserva os dados internos do Kafka.
   kafka-data:
+    name: recomeco-stack-local_kafka-data
 
-  # Preserva o histórico de métricas do Prometheus.
   prometheus-data:
+    name: recomeco-stack-local_prometheus-data
 
-  # Preserva usuários e configurações internas do Grafana.
   grafana-data:
+    name: recomeco-stack-local_grafana-data
 
-  # Preserva os logs armazenados pelo Loki.
   loki-data:
+    name: recomeco-stack-local_loki-data
 
-  # Preserva as posições de leitura mantidas pelo Alloy.
   alloy-data:
+    name: recomeco-stack-local_alloy-data
 
-# Define um nome estável para a rede compartilhada
-# pelos componentes do nosso laboratório.
+
 networks:
+
+  # Todos os containers que precisam conversar entre projetos
+  # utilizam esta rede compartilhada.
+  #
+  # external impede que docker compose down apague a rede.
   default:
     name: recomeco-network
+    external: true
