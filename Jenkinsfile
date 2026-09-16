@@ -1,109 +1,127 @@
-// Define uma pipeline declarativa executada pelo Jenkins.
+// Pipeline do ProjetoSpringBoot executada pelo Jenkins.
 pipeline {
 
-    // Seleciona um agente Windows que possua Java 21.
+    // Utiliza o agente Windows com Java 21.
     agent {
         label 'windows && java21'
     }
 
-    // Solicita ao Jenkins a instalação configurada do JDK 21.
+    // Evita o checkout automático.
+    // O código será baixado explicitamente no primeiro stage.
+    options {
+        skipDefaultCheckout(true)
+    }
+
+    // Utiliza o JDK 21 cadastrado no Jenkins.
     tools {
         jdk 'JDK21'
     }
 
-    // Agrupa as etapas executadas em sequência.
+    // Configurações compartilhadas pelos stages.
+    environment {
+
+        // AWS CLI instalada no perfil do usuário Ricardo.
+        AWS_CLI = 'C:\\Users\\Ricardo\\AppData\\Local\\Programs\\Amazon\\AWSCLIV2\\aws.exe'
+
+        // Permite que o Jenkins, executado como LocalSystem,
+        // encontre a configuração e a sessão AWS do usuário Ricardo.
+        HOME = 'C:\\Users\\Ricardo'
+        USERPROFILE = 'C:\\Users\\Ricardo'
+        AWS_CONFIG_FILE = 'C:\\Users\\Ricardo\\.aws\\config'
+
+        // Perfil utilizado no laboratório.
+        AWS_PROFILE = 'projeto-s3'
+
+        // Região, registro e repositório ECR do monólito.
+        AWS_REGION = 'sa-east-1'
+        ECR_REGISTRY = '033649548808.dkr.ecr.sa-east-1.amazonaws.com'
+        ECR_REPOSITORY = 'recomeco/projeto-springboot'
+    }
+
     stages {
-/*
-        Versão antiga do checkout mantida apenas como referência.
+
+        // Obtém o código configurado no job do Jenkins.
         stage('Checkout') {
 
             steps {
 
+                // Remove arquivos deixados por execuções anteriores.
                 deleteDir()
 
-                git branch: 'master',
-                    credentialsId: 'github-projetospringboot',
-                    url: 'https://github.com/rmbredes/ProjetoSpringBoot.git'
-            }
-        }
-*/
-
-        // Obtém do controle de versão o mesmo repositório que iniciou a pipeline.
-        stage('Checkout') {
-
-            steps {
-
-                // Limpa arquivos deixados por uma execução anterior.
-                deleteDir()
-                // Baixa o código usando a configuração SCM do job.
+                // Baixa a master do repositório configurado no job.
                 checkout scm
             }
         }
-        // Confirma as versões e variáveis do Java disponíveis no agente.
-        stage('Teste Java') {
+
+        // Confirma as ferramentas utilizadas pela pipeline.
+        stage('Verificar ambiente') {
 
             steps {
 
-                // Exibe a versão do executável Java.
                 bat 'java -version'
-                // Exibe o diretório do JDK escolhido pelo Jenkins.
                 bat 'echo JAVA_HOME=%JAVA_HOME%'
-            }
-        }
-
-        // Executa a suíte automatizada antes de gerar qualquer artefato.
-        stage('Testes') {
-
-            steps {
-
-                // Usa o Maven Wrapper versionado pelo projeto.
-                bat 'call mvnw.cmd test'
-            }
-        }
-
-        // Limpa resultados anteriores e produz o JAR executável.
-        stage('Package') {
-
-            steps {
-
-                // O comando também repete os testes como proteção do empacotamento.
-                bat 'call mvnw.cmd clean package'
-            }
-        }
-        // Confirma que Docker e Compose estão acessíveis no agente.
-        stage('Teste Docker') {
-
-            steps {
-                // Exibe a versão do cliente Docker.
                 bat 'docker --version'
-                // Exibe a versão do plugin Docker Compose.
                 bat 'docker compose version'
-                // Confirma a comunicação completa entre cliente e servidor Docker.
                 bat 'docker version'
+
+                // Interrompe claramente caso a AWS CLI não exista.
+                bat '''
+                    if not exist "%AWS_CLI%" (
+                        echo AWS CLI nao encontrada em: %AWS_CLI%
+                        exit /b 1
+                    )
+                '''
+
+                // Interrompe caso o arquivo de configuração AWS não exista.
+                bat '''
+                    if not exist "%AWS_CONFIG_FILE%" (
+                        echo Configuracao AWS nao encontrada em: %AWS_CONFIG_FILE%
+                        exit /b 1
+                    )
+                '''
+
+                // Utiliza o caminho completo porque a AWS CLI não está
+                // no PATH da conta LocalSystem.
+                bat '"%AWS_CLI%" --version'
             }
         }
 
-        // Constrói e identifica a imagem da aplicação.
-        stage('Build Docker') {
+        // Compila, executa os testes e produz o JAR.
+        stage('Testar e gerar pacote') {
 
             steps {
-                // Cria uma tag imutável da execução e atualiza a tag local latest.
+
+                bat 'call mvnw.cmd clean verify'
+            }
+        }
+
+        // Constrói e identifica a imagem local da aplicação.
+        stage('Construir imagem Docker') {
+
+            steps {
+
+                // A imagem recebe:
+                //
+                // BUILD_NUMBER: versão desta execução do Jenkins.
+                // latest: imagem utilizada pelo Compose local.
                 bat '''
-                    docker build ^
-                        -t projeto-springboot:%BUILD_NUMBER% ^
-                        -t projeto-springboot:latest ^
+                    docker build --pull ^
+                        --tag projeto-springboot:%BUILD_NUMBER% ^
+                        --tag projeto-springboot:latest ^
                         .
                 '''
 
-                // Confirma que a imagem numerada foi realmente criada.
+                // Confirma que a imagem numerada foi criada.
                 bat 'docker image inspect projeto-springboot:%BUILD_NUMBER%'
             }
         }
-        // Atualiza os containers descritos no Compose.
-        stage('Deploy Docker') {
+
+        // Atualiza os containers descritos no Compose do monólito.
+        stage('Deploy Docker local') {
 
             steps {
-                // Inicia os serviços e aguarda até que fiquem prontos ou atinjam o limite.
+
+                // Inicia os serviços e aguarda a conclusão dos healthchecks.
                 bat '''
                     docker compose ^
                         -p projetospringboot ^
@@ -113,15 +131,17 @@ pipeline {
                         --wait-timeout 120
                 '''
 
-                // Exibe o estado final de cada container do projeto.
+                // Exibe o estado final dos containers.
                 bat 'docker compose -p projetospringboot ps'
             }
         }
-        // Realiza uma chamada HTTP para confirmar que a aplicação responde.
-        stage('Validar Aplicacao') {
+
+        // Confirma que a aplicação implantada localmente responde.
+        stage('Validar aplicação') {
 
             steps {
-                // Repete a chamada durante a inicialização e exibe cabeçalhos e corpo.
+
+                // Repete a chamada durante a inicialização da aplicação.
                 bat '''
                     curl.exe ^
                         --retry 12 ^
@@ -132,11 +152,61 @@ pipeline {
                 '''
             }
         }
-        // Remove tags numeradas antigas que não estão mais em uso.
-        stage('Limpar Imagens Antigas') {
+
+        // Confirma que o Jenkins consegue utilizar a sessão AWS.
+        stage('Validar identidade AWS') {
 
             steps {
-                // Preserva as tags latest e a tag gerada pela execução atual.
+
+                bat '''
+                    "%AWS_CLI%" sts get-caller-identity --profile %AWS_PROFILE%
+                '''
+            }
+        }
+
+        // Autentica o Docker no registro privado do ECR.
+        stage('Autenticar no Amazon ECR') {
+
+            steps {
+
+                // A senha temporária segue diretamente da AWS CLI
+                // para o Docker e não é gravada em arquivo.
+                bat '''
+                    "%AWS_CLI%" ecr get-login-password --region %AWS_REGION% --profile %AWS_PROFILE% | docker login --username AWS --password-stdin %ECR_REGISTRY%
+                '''
+            }
+        }
+
+        // Publica no ECR exatamente a imagem que passou pela validação local.
+        stage('Publicar imagem no Amazon ECR') {
+
+            steps {
+
+                // As duas tags remotas apontarão para o mesmo digest.
+                bat '''
+                    docker tag ^
+                        projeto-springboot:%BUILD_NUMBER% ^
+                        %ECR_REGISTRY%/%ECR_REPOSITORY%:jenkins-latest
+
+                    docker tag ^
+                        projeto-springboot:%BUILD_NUMBER% ^
+                        %ECR_REGISTRY%/%ECR_REPOSITORY%:jenkins-%BUILD_NUMBER%
+
+                    docker push ^
+                        %ECR_REGISTRY%/%ECR_REPOSITORY%:jenkins-latest
+
+                    docker push ^
+                        %ECR_REGISTRY%/%ECR_REPOSITORY%:jenkins-%BUILD_NUMBER%
+                '''
+            }
+        }
+
+        // Remove tags numeradas antigas da máquina local.
+        stage('Limpar imagens locais antigas') {
+
+            steps {
+
+                // Preserva latest e a versão produzida nesta execução.
                 bat '''
                     for /f "delims=" %%i in ('docker image ls projeto-springboot --format "{{.Repository}}:{{.Tag}}"') do (
                         if /I not "%%i"=="projeto-springboot:latest" (
