@@ -1,26 +1,49 @@
-name: CI - Java e Docker
+# Pipeline de integração contínua do ProjetoSpringBoot.
+name: CI - Java, Docker e Amazon ECR
 
+# Situações que iniciam automaticamente o workflow.
 on:
+
+  # Executa ao enviar commits para a master ou para a branch de implementação.
   push:
     branches:
       - master
-      - feature/github
+      - feature/github-actions-ecr
 
+  # Executa quando uma Pull Request apontar para a master.
   pull_request:
     branches:
       - master
 
+# Permissões concedidas ao workflow.
 permissions:
+
+  # Permite baixar o código do repositório.
   contents: read
 
+  # Permite obter um token OIDC para autenticação temporária na AWS.
+  id-token: write
+
+# Valores reutilizados nos passos do workflow.
+env:
+  AWS_REGION: sa-east-1
+  AWS_ROLE_ARN: arn:aws:iam::033649548808:role/GitHubActionsEcrRecomecoRole
+  ECR_REPOSITORY: recomeco/projeto-springboot
+
 jobs:
+
   build:
+
+    # Máquina Linux temporária fornecida pelo GitHub.
     runs-on: ubuntu-latest
 
     steps:
-      - name: Baixar codigo
+
+      # Baixa o código do monólito.
+      - name: Baixar código
         uses: actions/checkout@v6
 
+      # Instala o Java 21 e habilita o cache das dependências Maven.
       - name: Configurar Java 21
         uses: actions/setup-java@v5
         with:
@@ -28,11 +51,54 @@ jobs:
           java-version: "21"
           cache: maven
 
+      # No Linux, o Maven Wrapper precisa ter permissão de execução.
       - name: Preparar Maven Wrapper
         run: chmod +x mvnw
 
+      # Compila, executa os testes e gera o arquivo JAR.
       - name: Testar e gerar pacote
         run: ./mvnw clean verify
 
+      # Constrói a imagem usando a versão mais recente da imagem-base.
+      #
+      # github.sha identifica localmente a imagem pelo commit exato
+      # que iniciou esta execução.
       - name: Construir imagem Docker
-        run: docker build --tag projeto-springboot:${{ github.sha }} .
+        run: docker build --pull --tag projeto-springboot:${{ github.sha }} .
+
+      # Os próximos passos executam somente após um push na master.
+      # Durante uma Pull Request, o workflow apenas testa e constrói.
+      - name: Obter credenciais temporárias da AWS
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-session-name: projeto-springboot-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Autentica o Docker no registro privado do Amazon ECR.
+      - name: Autenticar Docker no Amazon ECR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Publica duas tags para o mesmo artefato:
+      #
+      # latest:
+      # aponta para a versão mais recente da master.
+      #
+      # sha-<commit>:
+      # identifica exatamente o código que produziu a imagem.
+      - name: Publicar imagem no Amazon ECR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}"
+
+          docker tag projeto-springboot:${COMMIT_SHA} "${IMAGE_URI}:latest"
+          docker tag projeto-springboot:${COMMIT_SHA} "${IMAGE_URI}:sha-${COMMIT_SHA}"
+
+          docker push "${IMAGE_URI}:latest"
+          docker push "${IMAGE_URI}:sha-${COMMIT_SHA}"
