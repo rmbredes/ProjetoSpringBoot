@@ -103,7 +103,7 @@ pipeline {
                 // A imagem recebe:
                 //
                 // BUILD_NUMBER: versão desta execução do Jenkins.
-                // latest: imagem utilizada pelo Compose local.
+                // latest: versão mais recente criada localmente.
                 bat '''
                     docker build --pull ^
                         --tag projeto-springboot:%BUILD_NUMBER% ^
@@ -113,43 +113,6 @@ pipeline {
 
                 // Confirma que a imagem numerada foi criada.
                 bat 'docker image inspect projeto-springboot:%BUILD_NUMBER%'
-            }
-        }
-
-        // Atualiza os containers descritos no Compose do monólito.
-        stage('Deploy Docker local') {
-
-            steps {
-
-                // Inicia os serviços e aguarda a conclusão dos healthchecks.
-                bat '''
-                    docker compose ^
-                        -p projetospringboot ^
-                        up -d ^
-                        --no-build ^
-                        --wait ^
-                        --wait-timeout 120
-                '''
-
-                // Exibe o estado final dos containers.
-                bat 'docker compose -p projetospringboot ps'
-            }
-        }
-
-        // Confirma que a aplicação implantada localmente responde.
-        stage('Validar aplicação') {
-
-            steps {
-
-                // Repete a chamada durante a inicialização da aplicação.
-                bat '''
-                    curl.exe ^
-                        --retry 12 ^
-                        --retry-delay 5 ^
-                        --retry-all-errors ^
-                        -i ^
-                        http://localhost:8080/ProjetoSpringBoot/clientes
-                '''
             }
         }
 
@@ -177,7 +140,8 @@ pipeline {
             }
         }
 
-        // Publica no ECR exatamente a imagem que passou pela validação local.
+        // Publica no ECR a imagem que passou pelos testes
+        // e pela construção Docker.
         stage('Publicar imagem no Amazon ECR') {
 
             steps {
